@@ -78,4 +78,8 @@ Value *ValueNewString(char *value);
 Value *ValueNewPointer(void *value);
 Value *ValueNewNull(void);
 
+
+int ValueIsMap(Value *value);
+int ValueIsArray(Value *arr);
+Value *ValueAt(Value *container, size_t index);
 #endif

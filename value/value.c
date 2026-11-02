@@ -153,15 +153,6 @@ Value *ValueGet(Value *map_v, const char *key)
 
 
 
-void ValueFree(Value *value)
-{
-    if (!value)return;
-    if (value->free) value->free(value); 
-    else free(value);
-}
-
-
-
 
 Value *ValueNewInt(int value)
 {
@@ -215,4 +206,84 @@ Value *ValueNewPointer(void *value)
 Value *ValueNewNull(void)
 {
     return ValueNew(VALUE_NULL, NULL);
+}
+
+
+int ValueIsMap(Value *value)
+{
+    return value->kind == VALUE_MAP && value->map;
+}
+
+
+int ValueIsArray(Value *arr)
+{
+    return arr->kind == VALUE_ARRAY && arr->array;
+}
+
+
+Value *ValueAt(Value *container, size_t index)
+{
+    if (!container || container->kind != VALUE_ARRAY || !container->array)
+        return NULL;
+
+    ValueArray *a = container->array;
+    if (index >= a->len)
+        return NULL;
+
+    return &a->values[index];
+}
+
+void ValueClear(Value *value)
+{
+    if (!value) return;
+
+    switch (value->kind) {
+        case VALUE_ARRAY:
+            if (value->array) {
+                for (size_t i = 0; i < value->array->len; i++)
+                    ValueClear(&value->array->values[i]);
+                free(value->array->values);
+                free(value->array);
+                value->array = NULL;
+            }
+            break;
+
+        case VALUE_LIST: {
+            ValueNode *node = value->list;
+            while (node) {
+                ValueNode *next = node->next;
+                ValueClear(&node->value);
+                free(node);
+                node = next;
+            }
+            value->list = NULL;
+            break;
+        }
+
+        case VALUE_MAP:
+            if (value->map) {
+                MapFree(value->map);
+                value->map = NULL;
+            }
+            break;
+
+        case VALUE_STRING:
+            free(value->str);
+            value->str = NULL;
+            break;
+
+        default:
+            break;
+    }
+}
+
+void ValueFree(Value *value)
+{
+    if (!value) return;
+    if (value->free) {
+        value->free(value);
+        return;
+    }
+    ValueClear(value);
+    free(value);
 }

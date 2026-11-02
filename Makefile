@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 -D_DEFAULT_SOURCE
 LDLIBS = -lws2_32 -liphlpapi
-CPPFLAGS = -I. -Isrc -Iconfig -Ipool -Ilogging -Iutils
+CPPFLAGS = -I. -Isrc -Iconfig -iquote pool -iquote value -Ilogging -Iutils
 
 BIN_DIR = bin
 BUILD_DIR = build
@@ -16,13 +16,18 @@ CORE_SRC = \
 	cli/spinner.c \
 	logging/logging.c \
 	utils/fs.c \
+	random.c \
+	pool/time.c \
 	pool/cidr.c \
 	config/config.c \
 	models.c \
 	uibridge.c \
 	probe/manager.c \
 	probe/icmp.c \
+	pool/init.c \
 	pool/picker.c \
+	pool/resume.c \
+	pool/deser.c \
 	pool/bucket.c \
 	pool/fiestel.c \
 	cmdline/parser.c \

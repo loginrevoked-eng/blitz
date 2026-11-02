@@ -4,6 +4,18 @@
 #include <stdlib.h>
 #include <string.h>
 
+Bucket BucketNew(uint32_t permutation_seed, size_t permutation_current, Ipv4 start, Ipv4 end)
+{
+    return (Bucket){
+        .permutation_seed = permutation_seed,
+        .permutation_current = permutation_current,
+        .start = start,
+        .end = end,
+        .is_cooling = 0,
+        .expires_at = 0
+    };
+}
+
 BucketList *BucketListNewReserve(size_t capacity)
 {
     BucketList *list = malloc(sizeof *list);

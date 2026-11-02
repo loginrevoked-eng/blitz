@@ -1,6 +1,7 @@
 #include "models.h"
 #include "config.h"
 #include "logging.h"
+#include "pool/init.h"
 #include "str/str.h"
 #include "fs.h"
 #include <stdlib.h>
@@ -99,18 +100,16 @@ BotContext *BotContextOrDie(int argc, char **argv)
     if (context->cidr_text == NULL)
         Panic("Failed to copy CIDR text\n");
 
-    context->range = CidrRangeNew(context->cidr_text);
-    if (context->range == NULL)
-        Panic("Invalid CIDR: %s\n", context->cidr_text);
-
     if (context->config->cooldown_period > UINT32_MAX / 1000U)
         Panic("Cooldown interval is too large\n");
-    context->picker = IpPicker_Initialize(context->range,
+    context->picker = IpPicker_Initialize(context->cidr_text,
                                           context->config->bucket_width,
                                           context->config->cooldown_period * 1000U,
-                                          context->config->exclude_private_ranges);
-    if (context->picker == NULL)
+                                          context->config->exclude_private_ranges,
+                                          NULL, 0);
+    if (context->picker == NULL) {
         Panic("Failed to create IP picker\n");
+    }
     InterlockedExchangePointer(&active_context, context);
     if (!SetConsoleCtrlHandler(BotConsoleCtrlHandler, TRUE)) {
         InterlockedExchangePointer(&active_context, NULL);
@@ -176,7 +175,6 @@ int BotFinalize(BotContext *context)
     }
     IpPicker_Finalize(context->picker);
     int interrupted = context->interrupted != 0;
-    free(context->range);
     free(context->cidr_text);
     FreeConfig(context->config);
     free(context);

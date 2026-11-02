@@ -20,7 +20,6 @@ typedef struct {
     volatile LONG interrupted;
     char *cidr_text;
     Config *config;
-    CidrRange *range;
     IpPicker *picker;
     ProbeManager probe_manager;
     UIBridge ui;
