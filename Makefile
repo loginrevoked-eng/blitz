@@ -8,6 +8,9 @@ BUILD_DIR = build
 BOT = $(BIN_DIR)/bot.exe
 DEMO = $(BIN_DIR)/demo.exe
 ICMP = $(BIN_DIR)/icmp.exe
+LUAEMBED = $(BIN_DIR)/luaembed.exe
+LUA_INCLUDE = -Ideps/lua/include
+LUA_LIB = deps/lua/lib/liblua.a
 
 CORE_SRC = \
 	cli/marquee.c \
@@ -61,16 +64,17 @@ DEMO_SRC = \
 DEMO_OBJ = $(patsubst %.c,$(BUILD_DIR)/%.o,$(DEMO_SRC))
 ICMP_OBJ = $(BUILD_DIR)/main.o $(CORE_OBJ)
 
-.PHONY: all bot demo icmp clean
+.PHONY: all bot demo icmp luaembed clean
 
 all: bot
 
 bot: $(BOT)
 
 PROBE_SRC = probe/main.c probe/probe.c probe/config.c probe/init.c probe/repr.c probe/icmp.c probe/tcp.c probe/udp.c probe/io/signal.c \
-	banners/banners.c banners/http.c banners/ftp.c banners/rtsp.c banners/lookup.c \
+	banners/banners.c banners/http.c banners/ftp.c banners/rtsp.c banners/ssh.c banners/lookup.c \
+	registry/registry.c handlers/ssh.c handlers/ssh-util.c \
 	pool/time.c pool/cidr.c pool/exclusion.c pool/init.c pool/hook.c pool/picker.c \
-	crypto/feistel.c crypto/random.c hashset/hashset.c \
+	crypto/feistel.c crypto/random.c hashmap/hashmap.c hashset/hashset.c \
 	tui/marquee.c cmdline/parser.c cmdline/map.c cmdline/panic.c cmdline/value.c \
 	value/crud.c value/map.c value/json.c pool/resume.c pool/deser.c pool/bucket.c \
 	utils/fs.c str/str.c logging/logging.c
@@ -80,6 +84,11 @@ $(BOT): $(PROBE_SRC) | $(BIN_DIR)
 demo: $(DEMO)
 
 icmp: $(ICMP)
+
+luaembed: $(LUAEMBED)
+
+$(LUAEMBED): main.c $(LUA_LIB) | $(BIN_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LUA_INCLUDE) -o $@ main.c $(LUA_LIB)
 
 $(DEMO): $(DEMO_OBJ) | $(BIN_DIR)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)

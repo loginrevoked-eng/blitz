@@ -2,6 +2,7 @@
 
 const uint32_t SERVICES[MAX_LOOKUP_INDEX + 1] = {
     [21] = SERVICE_FTP,
+    [22] = SERVICE_SSH,
     [554] = SERVICE_RTSP,
     [80] = SERVICE_HTTP,
     [443] = SERVICE_HTTPS,

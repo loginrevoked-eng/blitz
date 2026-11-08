@@ -5,13 +5,15 @@
 #include "http.h"
 #include "lookup.h"
 #include "rtsp.h"
+#include "ssh.h"
 #include "logging/logging.h"
 #include "pool/cidr.h"
 
 #include <stdlib.h>
 #include <string.h>
 
-static int LogFtpBanner(HostUpCheck *check, uint16_t port)
+static int LogFtpBanner(HostUpCheck *check, uint16_t port,
+    RegistryFindingHandler on_finding, void *context)
 {
     char *response = FtpGrab(check, port);
     if (response == NULL)
@@ -22,18 +24,24 @@ static int LogFtpBanner(HostUpCheck *check, uint16_t port)
     if (formatted == NULL)
         return 0;
 
-    char *ip = Ipv4Repr(check->toptions->probe.addr);
-    int logged = 0;
+    RegistryFinding finding = {
+        .service = REGISTRY_SERVICE_FTP,
+        .ip = check->toptions->probe.addr,
+        .port = port,
+        .detail.ftp = { .greeting = formatted }
+    };
+    int should_print = on_finding == NULL || on_finding(&finding, context);
+    char *ip = should_print ? Ipv4Repr(finding.ip) : NULL;
     if (ip != NULL) {
         Info("FTP %s:%u\n%s", ip, (unsigned)port, formatted);
         free(ip);
-        logged = 1;
     }
     free(formatted);
-    return logged;
+    return should_print;
 }
 
-static int LogHttpBanner(HostUpCheck *check, uint16_t port)
+static int LogHttpBanner(HostUpCheck *check, uint16_t port,
+    RegistryFindingHandler on_finding, void *context)
 {
     char *response = HttpGrab(check, port);
     if (response == NULL)
@@ -43,18 +51,24 @@ static int LogHttpBanner(HostUpCheck *check, uint16_t port)
     if (formatted == NULL)
         return 0;
 
-    char *ip = Ipv4Repr(check->toptions->probe.addr);
-    int logged = 0;
+    RegistryFinding finding = {
+        .service = REGISTRY_SERVICE_HTTP,
+        .ip = check->toptions->probe.addr,
+        .port = port,
+        .detail.http = { .headers = formatted }
+    };
+    int should_print = on_finding == NULL || on_finding(&finding, context);
+    char *ip = should_print ? Ipv4Repr(finding.ip) : NULL;
     if (ip != NULL) {
         Info("HTTP %s:%u\n%s", ip, (unsigned)port, formatted);
         free(ip);
-        logged = 1;
     }
     free(formatted);
-    return logged;
+    return should_print;
 }
 
-static int LogRtspBanner(HostUpCheck *check, uint16_t port)
+static int LogRtspBanner(HostUpCheck *check, uint16_t port,
+    RegistryFindingHandler on_finding, void *context)
 {
     char *response = RtspGrab(check, port);
     if (response == NULL)
@@ -65,18 +79,52 @@ static int LogRtspBanner(HostUpCheck *check, uint16_t port)
     if (formatted == NULL)
         return 0;
 
-    char *ip = Ipv4Repr(check->toptions->probe.addr);
-    int logged = 0;
+    RegistryFinding finding = {
+        .service = REGISTRY_SERVICE_RTSP,
+        .ip = check->toptions->probe.addr,
+        .port = port,
+        .detail.rtsp = { .headers = formatted }
+    };
+    int should_print = on_finding == NULL || on_finding(&finding, context);
+    char *ip = should_print ? Ipv4Repr(finding.ip) : NULL;
     if (ip != NULL) {
         Info("RTSP %s:%u\n%s", ip, (unsigned)port, formatted);
         free(ip);
-        logged = 1;
     }
     free(formatted);
-    return logged;
+    return should_print;
 }
 
-int GrabBanners(HostUpCheck *check)
+static int LogSshBanner(HostUpCheck *check, uint16_t port,
+    RegistryFindingHandler on_finding, void *context)
+{
+    char *response = SshGrab(check, port);
+    if (response == NULL)
+        return 0;
+
+    char *formatted = SshResponseFmt(response);
+    free(response);
+    if (formatted == NULL)
+        return 0;
+
+    RegistryFinding finding = {
+        .service = REGISTRY_SERVICE_SSH,
+        .ip = check->toptions->probe.addr,
+        .port = port,
+        .detail.ssh = { .identification = formatted }
+    };
+    int should_print = on_finding == NULL || on_finding(&finding, context);
+    char *ip = should_print ? Ipv4Repr(finding.ip) : NULL;
+    if (ip != NULL) {
+        Info("SSH %s:%u\n%s", ip, (unsigned)port, formatted);
+        free(ip);
+    }
+    free(formatted);
+    return should_print;
+}
+
+int GrabBanners(HostUpCheck *check, RegistryFindingHandler on_finding,
+    void *context)
 {
     if (check == NULL || check->toptions == NULL || check->result.tresult == NULL)
         return 0;
@@ -90,11 +138,13 @@ int GrabBanners(HostUpCheck *check)
             continue;
         uint32_t services = SERVICES[result->port];
         if (services & SERVICE_FTP)
-            grabbed += LogFtpBanner(check, result->port);
+            grabbed += LogFtpBanner(check, result->port, on_finding, context);
         if (services & SERVICE_RTSP)
-            grabbed += LogRtspBanner(check, result->port);
+            grabbed += LogRtspBanner(check, result->port, on_finding, context);
+        if (services & SERVICE_SSH)
+            grabbed += LogSshBanner(check, result->port, on_finding, context);
         if (services & SERVICE_HTTP)
-            grabbed += LogHttpBanner(check, result->port);
+            grabbed += LogHttpBanner(check, result->port, on_finding, context);
     }
     return grabbed;
 }

@@ -6,6 +6,7 @@
 #include "repr.h"
 #include "icmp.h"
 #include "picker.h"
+#include "registry/registry.h"
 #include "tcp.h"
 #include "udp.h"
 #include "hashset/hashset.h"
@@ -22,7 +23,19 @@ static HostUpCheck *CheckInit(ProbeContext *state, Ipv4 address)
     return HostUpCheck_New(state->config->method, address, state->config->timeout_ms, state->config->retries, &state->config->ports);
 }
 
-static void CheckHost(HostUpCheck *check, HostUpCheckCallback callback)
+static int CheckHostRunRegisteredCallback(const RegistryFinding *finding,
+    void *argument)
+{
+    ProbeContext *context = argument;
+    void *callback_context = NULL;
+    RegistryCallback callback = RegistryFindCallback(context->registry,
+        finding, &callback_context);
+    if (callback == NULL)
+        return 1;
+    return callback(finding->ip, finding->port, finding, callback_context);
+}
+
+static void CheckHost(ProbeContext *context, HostUpCheck *check)
 {
     if (check == NULL)
         return;
@@ -52,8 +65,9 @@ static void CheckHost(HostUpCheck *check, HostUpCheckCallback callback)
     }
 
     check->result.status = responsive ? HOST_CHECK_STATUS_SUCCEEDED : HOST_CHECK_STATUS_RETRIES_EXHAUSTED;
-    if (check->result.status == HOST_CHECK_STATUS_SUCCEEDED && callback != NULL)
-        callback(check);
+    if (check->result.status == HOST_CHECK_STATUS_SUCCEEDED &&
+        (context->flags & PROBE_GRAB_BANNERS) != 0)
+        GrabBanners(check, CheckHostRunRegisteredCallback, context);
 }
 
 static void CheckSummarize(ProbeContext *context, HostUpCheck *check)
@@ -66,7 +80,9 @@ static void CheckSummarize(ProbeContext *context, HostUpCheck *check)
         return;
 
     atomic_fetch_add(&context->summary.responsive, 1);
-    Log("UP %s\n", repr);
+    Log("UP %s\n"
+        "----------------------------------------------------------------------------------------------------\n",
+        repr);
     free(repr);
 }
 
@@ -86,8 +102,7 @@ static DWORD WINAPI ProbeWorker(LPVOID argument)
     while (atomic_fetch_add(&state->summary.claimed, 1) < state->config->limit && IpPicker_Pick(state->picker, &address, NULL))
     {
         HostUpCheck *check = CheckInit(state, address);
-        CheckHost(check, (state->flags & PROBE_GRAB_BANNERS) != 0
-            ? GrabBanners : NULL);
+        CheckHost(state, check);
         CheckFinish(state, check);
     }
     return 0;
@@ -198,10 +213,11 @@ static void ProbeSummarySignalWrapper(int signal_number, void *argument)
 }
 
 int ProbeRun(HostupCheckHub *hub, IpPicker *picker, const ProbeConfig *config,
-    ProbeFlags flags)
+    ProbeFlags flags, Registry *registry)
 {
     ProbeContext state;
     if(!ProbeInit(&state, hub, picker, config)) return 0;
+    state.registry = registry;
     state.flags = flags;
 
     state.marquee = MarqueeCreateStderr("Preparing checks", 64, '#', 100);

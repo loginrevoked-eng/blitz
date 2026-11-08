@@ -89,7 +89,7 @@ int ProbeConfig_Parse(ProbeConfig *config, int argc, char **argv)
     config->log_level = LOG_LEVEL_LOG;
 
     MoolahCli *parser = MoolahCliNew(argv[0], "multithreaded host checker",
-        MOOLAHCLI_REMOVE_BUILTINS | MOOLAHCLI_IGNORE_CASE, argv);
+        MOOLAHCLI_IGNORE_CASE | MOOLAHCLI_REMOVE_BUILTINS, argv);
     if (parser == NULL)
         return 0;
 
@@ -98,8 +98,7 @@ int ProbeConfig_Parse(ProbeConfig *config, int argc, char **argv)
     MoolahCliAdd(parser, OPT_BOOL, "icmp", "--icmp", NULL, "ICMP echo check", 0, NULL, NULL);
     MoolahCliAdd(parser, OPT_BOOL, "syn", "--syn", NULL, "TCP connect check", 0, NULL, NULL);
     MoolahCliAdd(parser, OPT_BOOL, "datagram", "--datagram", NULL, "UDP probe", 0, NULL, NULL);
-    MoolahCliAdd(parser, OPT_BOOL, "banners", "--banners", NULL,
-        "grab HTTP banners from responsive hosts", 0, NULL, NULL);
+    MoolahCliAdd(parser, OPT_BOOL, "banners", "--banners", NULL, "grab HTTP, FTP, RTSP banners from responsive hosts", 0, NULL, NULL);
     MoolahCliAdd(parser, OPT_STR, "ports", "--ports", NULL, "comma-separated ports", 0, NULL, NULL);
     MoolahCliAdd(parser, OPT_LONG, "threads", "--threads", NULL, "worker count", 0, NULL, NULL);
     MoolahCliAdd(parser, OPT_LONG, "limit", "--limit", NULL, "number of addresses", 0, NULL, NULL);
@@ -109,8 +108,7 @@ int ProbeConfig_Parse(ProbeConfig *config, int argc, char **argv)
     MoolahCliAdd(parser, OPT_STR, "dump", "--dump", NULL, "pool dump file", 0, NULL, NULL);
     MoolahCliAdd(parser, OPT_LONG, "timeout", "--timeout", NULL, "timeout in ms", 0, NULL, NULL);
     MoolahCliAdd(parser, OPT_LONG, "retries", "--retries", NULL, "retry count", 0, NULL, NULL);
-    MoolahCliAdd(parser, OPT_STR, "set-log-level", "--set-log-level", NULL,
-        "logging level: debug, info, warn, error, fatal, log, quiet", 0, NULL, NULL);
+    MoolahCliAdd(parser, OPT_STR, "set-log-level", "--set-log-level", NULL, "logging level: debug, info, warn, error, fatal, log, quiet", 0, NULL, NULL);
     MoolahCliParse(parser, argc, argv);
 
     config->cidr = strdup(MoolahCliGetString(parser, "cidr"));

@@ -1,9 +1,11 @@
 #include <winsock2.h>
 
 #include "config.h"
+#include "handlers/ssh.h"
 #include "init.h"
 #include "pool/init.h"
 #include "probe.h"
+#include "registry/registry.h"
 #include "logging/logging.h"
 
 #include <stdio.h>
@@ -53,11 +55,32 @@ int main(int argc, char **argv)
         return 2;
     }
 
+    Registry *registry = RegistryNew(16);
+    if (registry == NULL) {
+        Log("Failed to initialize the callback registry.\n");
+        HostupCheckHub_Free(hub);
+        IpPicker_Finalize(picker);
+        WSACleanup();
+        ProbeConfig_Free(&config);
+        return 2;
+    }
+    if (!RegistryCreateCallback(registry, REGISTRY_SERVICE_SSH,
+            HandlerSshBanner, NULL)) {
+        Log("Failed to register the SSH banner callback.\n");
+        RegistryFree(registry);
+        HostupCheckHub_Free(hub);
+        IpPicker_Finalize(picker);
+        WSACleanup();
+        ProbeConfig_Free(&config);
+        return 2;
+    }
+
     ProbeFlags probe_flags = PROBE_FLAGS_NONE;
     if (config.banners)
         probe_flags = (ProbeFlags)(probe_flags | PROBE_GRAB_BANNERS);
-    int status = ProbeRun(hub, picker, &config, probe_flags);
+    int status = ProbeRun(hub, picker, &config, probe_flags, registry);
 
+    RegistryFree(registry);
     HostupCheckHub_Free(hub);
     IpPicker_Finalize(picker);
     WSACleanup();

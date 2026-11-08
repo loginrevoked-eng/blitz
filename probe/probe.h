@@ -148,6 +148,8 @@ typedef struct {
 
 struct ProbeConfig;
 typedef struct ProbeContext ProbeContext;
+struct Registry;
+typedef struct Registry Registry;
 
 typedef struct {
     HashSet *threads;
@@ -167,13 +169,14 @@ struct ProbeContext {
     HostupCheckHub *hub;
     IpPicker *picker;
     const struct ProbeConfig *config;
+    Registry *registry;
     ProbeFlags flags;
     ProbeSummary summary;
     Marquee *marquee;
 };
 
 int ProbeRun(HostupCheckHub *hub, IpPicker *picker, const struct ProbeConfig *config,
-    ProbeFlags flags);
+    ProbeFlags flags, Registry *registry);
 HANDLE ProbeSpawnWorker(HostupCheckHub *hub, ProbeContext *context);
 uint32_t ProbeSpawnWorkers(HostupCheckHub *hub, ProbeContext *context);
 void ProbeWaitWorkers(HostupCheckHub *hub);

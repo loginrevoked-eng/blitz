@@ -10,7 +10,8 @@ typedef enum {
     SERVICE_HTTP = 1u << 0,
     SERVICE_HTTPS = 1u << 1,
     SERVICE_FTP = 1u << 2,
-    SERVICE_RTSP = 1u << 3
+    SERVICE_RTSP = 1u << 3,
+    SERVICE_SSH = 1u << 4
 } ServiceFlags;
 
 extern const uint32_t SERVICES[MAX_LOOKUP_INDEX + 1];
