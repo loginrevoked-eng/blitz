@@ -1,0 +1,82 @@
+[
+  {
+    "directory": "C:/Users/winuser/Desktop/bot",
+    "file": "C:/Users/winuser/Desktop/bot/main.c",
+    "arguments": ["C:/msys64/ucrt64/bin/gcc.exe", "-Wall", "-Wextra", "-std=c11", "-D_DEFAULT_SOURCE", "-I.", "-Isrc", "-Iconfig", "-Ipool", "-Ilogging", "-Iutils", "-Icmdline", "-Ihashmap", "-Ihashset", "-Ivalue", "-c", "main.c", "-o", "build/main.o"]
+  },
+  {
+    "directory": "C:/Users/winuser/Desktop/bot",
+    "file": "C:/Users/winuser/Desktop/bot/demo.c",
+    "arguments": ["C:/msys64/ucrt64/bin/gcc.exe", "-Wall", "-Wextra", "-std=c11", "-D_DEFAULT_SOURCE", "-I.", "-Isrc", "-Iconfig", "-Ipool", "-Ilogging", "-Iutils", "-Icmdline", "-Ihashmap", "-Ihashset", "-Ivalue", "-c", "demo.c", "-o", "build/demo.o"]
+  },
+  {
+    "directory": "C:/Users/winuser/Desktop/bot",
+    "file": "C:/Users/winuser/Desktop/bot/logging/logging.c",
+    "arguments": ["C:/msys64/ucrt64/bin/gcc.exe", "-Wall", "-Wextra", "-std=c11", "-D_DEFAULT_SOURCE", "-I.", "-Isrc", "-Iconfig", "-Ipool", "-Ilogging", "-Iutils", "-Icmdline", "-Ihashmap", "-Ihashset", "-Ivalue", "-c", "logging/logging.c", "-o", "build/logging/logging.o"]
+  },
+  {
+    "directory": "C:/Users/winuser/Desktop/bot",
+    "file": "C:/Users/winuser/Desktop/bot/utils/fs.c",
+    "arguments": ["C:/msys64/ucrt64/bin/gcc.exe", "-Wall", "-Wextra", "-std=c11", "-D_DEFAULT_SOURCE", "-I.", "-Isrc", "-Iconfig", "-Ipool", "-Ilogging", "-Iutils", "-Icmdline", "-Ihashmap", "-Ihashset", "-Ivalue", "-c", "utils/fs.c", "-o", "build/utils/fs.o"]
+  },
+  {
+    "directory": "C:/Users/winuser/Desktop/bot",
+    "file": "C:/Users/winuser/Desktop/bot/pool/cidr.c",
+    "arguments": ["C:/msys64/ucrt64/bin/gcc.exe", "-Wall", "-Wextra", "-std=c11", "-D_DEFAULT_SOURCE", "-I.", "-Isrc", "-Iconfig", "-Ipool", "-Ilogging", "-Iutils", "-Icmdline", "-Ihashmap", "-Ihashset", "-Ivalue", "-c", "pool/cidr.c", "-o", "build/pool/cidr.o"]
+  },
+  {
+    "directory": "C:/Users/winuser/Desktop/bot",
+    "file": "C:/Users/winuser/Desktop/bot/config/config.c",
+    "arguments": ["C:/msys64/ucrt64/bin/gcc.exe", "-Wall", "-Wextra", "-std=c11", "-D_DEFAULT_SOURCE", "-I.", "-Isrc", "-Iconfig", "-Ipool", "-Ilogging", "-Iutils", "-Icmdline", "-Ihashmap", "-Ihashset", "-Ivalue", "-c", "config/config.c", "-o", "build/config/config.o"]
+  },
+  {
+    "directory": "C:/Users/winuser/Desktop/bot",
+    "file": "C:/Users/winuser/Desktop/bot/models.c",
+    "arguments": ["C:/msys64/ucrt64/bin/gcc.exe", "-Wall", "-Wextra", "-std=c11", "-D_DEFAULT_SOURCE", "-I.", "-Isrc", "-Iconfig", "-Ipool", "-Ilogging", "-Iutils", "-Icmdline", "-Ihashmap", "-Ihashset", "-Ivalue", "-c", "models.c", "-o", "build/models.o"]
+  },
+  {
+    "directory": "C:/Users/winuser/Desktop/bot",
+    "file": "C:/Users/winuser/Desktop/bot/probe.c",
+    "arguments": ["C:/msys64/ucrt64/bin/gcc.exe", "-Wall", "-Wextra", "-std=c11", "-D_DEFAULT_SOURCE", "-I.", "-Isrc", "-Iconfig", "-Ipool", "-Ilogging", "-Iutils", "-Icmdline", "-Ihashmap", "-Ihashset", "-Ivalue", "-c", "probe.c", "-o", "build/probe.o"]
+  },
+  {
+    "directory": "C:/Users/winuser/Desktop/bot",
+    "file": "C:/Users/winuser/Desktop/bot/pool/picker.c",
+    "arguments": ["C:/msys64/ucrt64/bin/gcc.exe", "-Wall", "-Wextra", "-std=c11", "-D_DEFAULT_SOURCE", "-I.", "-Isrc", "-Iconfig", "-Ipool", "-Ilogging", "-Iutils", "-Icmdline", "-Ihashmap", "-Ihashset", "-Ivalue", "-c", "pool/picker.c", "-o", "build/pool/picker.o"]
+  },
+  {
+    "directory": "C:/Users/winuser/Desktop/bot",
+    "file": "C:/Users/winuser/Desktop/bot/pool/bucket.c",
+    "arguments": ["C:/msys64/ucrt64/bin/gcc.exe", "-Wall", "-Wextra", "-std=c11", "-D_DEFAULT_SOURCE", "-I.", "-Isrc", "-Iconfig", "-Ipool", "-Ilogging", "-Iutils", "-Icmdline", "-Ihashmap", "-Ihashset", "-Ivalue", "-c", "pool/bucket.c", "-o", "build/pool/bucket.o"]
+  },
+  {
+    "directory": "C:/Users/winuser/Desktop/bot",
+    "file": "C:/Users/winuser/Desktop/bot/crypto/feistel.c",
+    "arguments": ["C:/msys64/ucrt64/bin/gcc.exe", "-Wall", "-Wextra", "-std=c11", "-D_DEFAULT_SOURCE", "-I.", "-Isrc", "-Iconfig", "-Ipool", "-Ilogging", "-Iutils", "-Icmdline", "-Ihashmap", "-Ihashset", "-Ivalue", "-c", "crypto/feistel.c", "-o", "build/crypto/feistel.o"]
+  },
+  {
+    "directory": "C:/Users/winuser/Desktop/bot",
+    "file": "C:/Users/winuser/Desktop/bot/cmdline/parser.c",
+    "arguments": ["C:/msys64/ucrt64/bin/gcc.exe", "-Wall", "-Wextra", "-std=c11", "-D_DEFAULT_SOURCE", "-I.", "-Isrc", "-Iconfig", "-Ipool", "-Ilogging", "-Iutils", "-Icmdline", "-Ihashmap", "-Ihashset", "-Ivalue", "-c", "cmdline/parser.c", "-o", "build/cmdline/parser.o"]
+  },
+  {
+    "directory": "C:/Users/winuser/Desktop/bot",
+    "file": "C:/Users/winuser/Desktop/bot/cmdline/map.c",
+    "arguments": ["C:/msys64/ucrt64/bin/gcc.exe", "-Wall", "-Wextra", "-std=c11", "-D_DEFAULT_SOURCE", "-I.", "-Isrc", "-Iconfig", "-Ipool", "-Ilogging", "-Iutils", "-Icmdline", "-Ihashmap", "-Ihashset", "-Ivalue", "-c", "cmdline/map.c", "-o", "build/cmdline/map.o"]
+  },
+  {
+    "directory": "C:/Users/winuser/Desktop/bot",
+    "file": "C:/Users/winuser/Desktop/bot/cmdline/panic.c",
+    "arguments": ["C:/msys64/ucrt64/bin/gcc.exe", "-Wall", "-Wextra", "-std=c11", "-D_DEFAULT_SOURCE", "-I.", "-Isrc", "-Iconfig", "-Ipool", "-Ilogging", "-Iutils", "-Icmdline", "-Ihashmap", "-Ihashset", "-Ivalue", "-c", "cmdline/panic.c", "-o", "build/cmdline/panic.o"]
+  },
+  {
+    "directory": "C:/Users/winuser/Desktop/bot",
+    "file": "C:/Users/winuser/Desktop/bot/cmdline/value.c",
+    "arguments": ["C:/msys64/ucrt64/bin/gcc.exe", "-Wall", "-Wextra", "-std=c11", "-D_DEFAULT_SOURCE", "-I.", "-Isrc", "-Iconfig", "-Ipool", "-Ilogging", "-Iutils", "-Icmdline", "-Ihashmap", "-Ihashset", "-Ivalue", "-c", "cmdline/value.c", "-o", "build/cmdline/value.o"]
+  },
+  {
+    "directory": "C:/Users/winuser/Desktop/bot",
+    "file": "C:/Users/winuser/Desktop/bot/str/str.c",
+    "arguments": ["C:/msys64/ucrt64/bin/gcc.exe", "-Wall", "-Wextra", "-std=c11", "-D_DEFAULT_SOURCE", "-I.", "-Isrc", "-Iconfig", "-Ipool", "-Ilogging", "-Iutils", "-Icmdline", "-Ihashmap", "-Ihashset", "-Ivalue", "-c", "str/str.c", "-o", "build/str/str.o"]
+  }
+]
