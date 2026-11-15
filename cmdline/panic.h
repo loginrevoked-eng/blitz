@@ -1,7 +1,7 @@
-#ifndef PANIC_H
-#define PANIC_H
+#ifndef MOOLAHCLI_PANIC_H
+#define MOOLAHCLI_PANIC_H
 
 void MoolahCliPanic(const char *fmt, ...);
 void MoolahCliPanicIf(int condition, const char *fmt, ...);
-void SetPrefix(char *prefix);
+void MoolahCliSetPrefix(char *prefix);
 #endif

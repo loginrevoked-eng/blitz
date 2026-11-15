@@ -11,6 +11,7 @@
 static LogLevel level = LOG_LEVEL_LOG;
 static unsigned int add_tags = 0;
 static unsigned int add_timestamp = 0;
+static int logs_suspended = 0;
 static SRWLOCK output_lock = SRWLOCK_INIT;
 
 void LoggingOutputLock(void)
@@ -27,7 +28,8 @@ static void LogV(int fd, LogLevel message_level, const char *fmt, ...);
 
 static void LogArgs(int fd, LogLevel message_level, const char *fmt, va_list args)
 {
-    if (message_level != LOG_LEVEL_FATAL && message_level < level)
+    if (logs_suspended || (message_level != LOG_LEVEL_FATAL &&
+            message_level != LOG_LEVEL_LOG && message_level < level))
         return;
 
     va_list copy;
@@ -52,7 +54,8 @@ static void LogArgs(int fd, LogLevel message_level, const char *fmt, va_list arg
 
 static void LogV(int fd, LogLevel message_level, const char *fmt, ...)
 {
-    if (message_level != LOG_LEVEL_FATAL && message_level < level)
+    if (logs_suspended || (message_level != LOG_LEVEL_FATAL &&
+            message_level != LOG_LEVEL_LOG && message_level < level))
         return;
 
     FILE *stream = fd == 1 ? stdout : stderr;
@@ -67,9 +70,8 @@ static void LogV(int fd, LogLevel message_level, const char *fmt, ...)
     default:              label = "log"; break;
     }
 
-    /* The marquee shares stdout and leaves its cursor on the active line. */
-    if (fd == 1)
-        fputs("\r\x1b[2K", stream);
+    /* Clear an in-place progress line before writing a complete log line. */
+    fputs("\r\x1b[2K", stream);
 
     if (add_timestamp) {
         SYSTEMTIME now;
@@ -109,6 +111,20 @@ void SetLoggerFlags(unsigned int flags)
     LoggingOutputUnlock();
 }
 
+void SuspendLogs(void)
+{
+    LoggingOutputLock();
+    logs_suspended = 1;
+    LoggingOutputUnlock();
+}
+
+void ResumeLogs(void)
+{
+    LoggingOutputLock();
+    logs_suspended = 0;
+    LoggingOutputUnlock();
+}
+
 void Log(const char *fmt, ...)
 {
     LoggingOutputLock();
@@ -145,6 +161,16 @@ void Warn(const char *fmt, ...)
     va_list args;
     va_start(args, fmt);
     LogArgs(2, LOG_LEVEL_WARN, fmt, args);
+    va_end(args);
+    LoggingOutputUnlock();
+}
+
+void Error(const char *fmt, ...)
+{
+    LoggingOutputLock();
+    va_list args;
+    va_start(args, fmt);
+    LogArgs(2, LOG_LEVEL_ERROR, fmt, args);
     va_end(args);
     LoggingOutputUnlock();
 }

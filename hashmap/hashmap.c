@@ -6,7 +6,7 @@ struct HashMapEntry {
     char *key;
     uint64_t key_u64;
     int is_u64;
-    Value value;
+    MoolahValue value;
     HashMapEntry *next;
 };
 
@@ -46,7 +46,7 @@ HashMap *HashMap_New(size_t capacity)
     return map;
 }
 
-int HashMap_Set(HashMap *map, const char *key, Value value)
+int HashMap_Set(HashMap *map, const char *key, MoolahValue value)
 {
     if (map == NULL || key == NULL || map->capacity == 0)
         return 0;
@@ -76,7 +76,7 @@ int HashMap_Set(HashMap *map, const char *key, Value value)
     return 1;
 }
 
-Value *HashMap_Get(HashMap *map, const char *key)
+MoolahValue *HashMap_Get(HashMap *map, const char *key)
 {
     if (map == NULL || key == NULL || map->capacity == 0)
         return NULL;
@@ -134,7 +134,7 @@ size_t HashMap_RemoveIf(HashMap *map, HashMap_RemovePredicate predicate, void *c
     return removed;
 }
 
-int HashMap_SetU64(HashMap *map, uint64_t key, Value value)
+int HashMap_SetU64(HashMap *map, uint64_t key, MoolahValue value)
 {
     if (map == NULL || map->capacity == 0)
         return 0;
@@ -156,7 +156,7 @@ int HashMap_SetU64(HashMap *map, uint64_t key, Value value)
     return 1;
 }
 
-Value *HashMap_GetU64(HashMap *map, uint64_t key)
+MoolahValue *HashMap_GetU64(HashMap *map, uint64_t key)
 {
     if (map == NULL || map->capacity == 0)
         return NULL;

@@ -3,5 +3,5 @@
 
 #include "init.h"
 #include "picker.h"
-
+#include "cidr.h"
 #endif

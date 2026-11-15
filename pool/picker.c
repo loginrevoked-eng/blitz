@@ -11,6 +11,7 @@
 #include "resume.h"
 #include "time.h"
 
+#include <string.h>
 
 
 
@@ -58,6 +59,15 @@ static void IpPicker_SetEligible(IpPicker *picker, Bucket bucket)
     BucketListPush(picker->eligible, bucket);
 }
 
+static void BucketListRemoveSwap(BucketList *list, size_t index)
+{
+    if (list == NULL || index >= list->len)
+        return;
+
+    list->buckets[index] = list->buckets[list->len - 1];
+    --list->len;
+}
+
 DWORD WINAPI IpPicker_CooldownWorker(LPVOID picker_void)
 {
     IpPicker *picker = (IpPicker *)picker_void;
@@ -72,15 +82,20 @@ DWORD WINAPI IpPicker_CooldownWorker(LPVOID picker_void)
 
         uint64_t now = TimeNowNs();
         int moved = 0;
-        while (!BucketListIsEmpty(cooldown)) {
-            Bucket *front = BucketListAt(cooldown, 0);
-            if (front->expires_at > now)
+        size_t expired_count = 0;
+        while (expired_count < cooldown->len) {
+            Bucket *expired = &cooldown->buckets[expired_count];
+            if (expired->expires_at > now)
                 break;
 
-            Bucket expired = *front;
-            BucketListPopFront(cooldown);
-            IpPicker_SetEligible(picker, expired);
+            IpPicker_SetEligible(picker, *expired);
+            ++expired_count;
             moved = 1;
+        }
+        if (expired_count != 0) {
+            memmove(cooldown->buckets, cooldown->buckets + expired_count,
+                (cooldown->len - expired_count) * sizeof(*cooldown->buckets));
+            cooldown->len -= expired_count;
         }
 
         if (moved)
@@ -99,7 +114,7 @@ DWORD WINAPI IpPicker_CooldownWorker(LPVOID picker_void)
 static void IpPicker_PutCooldown(IpPicker *picker, size_t bucket_index)
 {
     Bucket clone = *BucketListAt(picker->eligible, bucket_index);
-    BucketListPop(picker->eligible, bucket_index);
+    BucketListRemoveSwap(picker->eligible, bucket_index);
 
     uint64_t bucket_width = clone.end - clone.start + 1;
     if(clone.permutation_current >= bucket_width)

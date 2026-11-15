@@ -1,14 +1,14 @@
-#ifndef PUBLIC_H
-#define PUBLIC_H
+#ifndef MOOLAHCLI_PUBLIC_H
+#define MOOLAHCLI_PUBLIC_H
 
 #include "value.h"
 
 typedef struct MoolahCli MoolahCli;
-typedef struct Context Context;
-typedef void (*OptionCallback)(Context *);
+typedef struct MoolahCliContext MoolahCliContext;
+typedef void (*MoolahCliOptionCallback)(MoolahCliContext *);
 
 typedef enum {
-    OPT_BOOL, OPT_LONG, OPT_DOUBLE, OPT_STR
+    MOOLAHCLI_OPT_BOOL, MOOLAHCLI_OPT_LONG, MOOLAHCLI_OPT_DOUBLE, MOOLAHCLI_OPT_STR
 } MoolahCliOptionKind;
 
 enum {
@@ -19,19 +19,23 @@ enum {
 };
 
 enum {
-    OPT_POSITIONAL = 1 << 0,
-    OPT_VARIADIC = 1 << 1,
-    OPT_DONE = 1 << 2,
-    OPT_REQUIRED = 1 << 3,
-    OPT_LIST = 1 << 4
+    MOOLAHCLI_OPT_POSITIONAL = 1 << 0,
+    MOOLAHCLI_OPT_VARIADIC = 1 << 1,
+    MOOLAHCLI_OPT_DONE = 1 << 2,
+    MOOLAHCLI_OPT_REQUIRED = 1 << 3,
+    MOOLAHCLI_OPT_LIST = 1 << 4
 };
 
 MoolahCli *MoolahCliNew(char *program, char *description, int flags, char **argv);
 void MoolahCliAdd(MoolahCli *parser, MoolahCliOptionKind kind, char *name,
                char *long_flag, char *short_flag, char *description,
-               int flags, OptionCallback callback, Value *default_value);
+               int flags, MoolahCliOptionCallback callback, MoolahValue *default_value,
+               char *mutex_group);
+void MoolahCliAddMutexGroup(MoolahCli *parser, char *group_name, int required);
+MoolahCli *MoolahCliAddSubcommand(MoolahCli *root, char *name,
+               char *program, char *description, int flags, char **argv);
 void MoolahCliParse(MoolahCli *parser, int argc, char **argv);
-Value *MoolahCliGet(MoolahCli *parser, const char *name);
+MoolahValue *MoolahCliGet(MoolahCli *parser, const char *name);
 char *MoolahCliGetString(MoolahCli *parser, const char *name);
 void MoolahCliDestroy(MoolahCli *parser);
 

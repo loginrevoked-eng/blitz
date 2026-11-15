@@ -21,10 +21,13 @@ void LoggingOutputLock(void);
 void LoggingOutputUnlock(void);
 void SetLogLevel(LogLevel new_level);
 void SetLoggerFlags(unsigned int flags);
+void SuspendLogs(void);
+void ResumeLogs(void);
 void Log(const char *fmt, ...);
 void Debug(const char *fmt, ...);
 void Info(const char *fmt, ...);
 void Warn(const char *fmt, ...);
+void Error(const char *fmt, ...);
 void Panic(const char *fmt, ...);
 
 #endif

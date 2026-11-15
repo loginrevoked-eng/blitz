@@ -1,56 +1,53 @@
-#ifndef VALUE_H
-#define VALUE_H
+#ifndef MOOLAH_VALUE_H
+#define MOOLAH_VALUE_H
 
 #include <stddef.h>
 
 typedef enum {
-    False,
-    True
-} Bool;
+    MOOLAH_FALSE,
+    MOOLAH_TRUE
+} MoolahBool;
 
 typedef enum {
-    VALUE_BOOL,
-    VALUE_INT,
-    VALUE_LONG,
-    VALUE_DOUBLE,
-    VALUE_STRING,
-    VALUE_POINTER,
-    VALUE_LIST,
-    VALUE_NULL,
-    VALUE_UNKNOWN,
-} ValueKind;
+    MOOLAH_VALUE_BOOL,
+    MOOLAH_VALUE_INT,
+    MOOLAH_VALUE_LONG,
+    MOOLAH_VALUE_DOUBLE,
+    MOOLAH_VALUE_STRING,
+    MOOLAH_VALUE_POINTER,
+    MOOLAH_VALUE_LIST,
+    MOOLAH_VALUE_NULL,
+    MOOLAH_VALUE_UNKNOWN
+} MoolahValueKind;
 
-typedef struct Value Value;
-typedef struct ValueNode ValueNode;
+typedef struct MoolahValue MoolahValue;
+typedef struct MoolahValueNode MoolahValueNode;
+typedef void (*MoolahValueFreeFunc)(MoolahValue *value);
 
-typedef void (*ValueFreeFunc)(Value *v);
-
-struct Value {
-    ValueKind kind;
-    ValueFreeFunc free;
-
+struct MoolahValue {
+    MoolahValueKind kind;
+    MoolahValueFreeFunc free;
     union {
         int i;
         long l;
         double d;
         char *s;
         void *p;
-        Bool b;
-        ValueNode *list;
+        MoolahBool b;
+        MoolahValueNode *list;
     };
 };
 
-struct ValueNode {
-    Value value;
-    ValueNode *next;
+struct MoolahValueNode {
+    MoolahValue value;
+    MoolahValueNode *next;
 };
 
-Value *MoolahValueNew(ValueKind kind);
-Value *MoolahValueNewEx(ValueKind kind, ValueFreeFunc free);
-void MoolahValueFree(Value *value);
-void MoolahValueDeepFree(Value *value);
-Value *MoolahValueAppend(Value *container, Value *element);
-size_t MoolahValueLen(Value *container);
+MoolahValue *MoolahValueNew(MoolahValueKind kind);
+MoolahValue *MoolahValueNewEx(MoolahValueKind kind, MoolahValueFreeFunc free_func);
+void MoolahValueFree(MoolahValue *value);
+void MoolahValueDeepFree(MoolahValue *value);
+MoolahValue *MoolahValueAppend(MoolahValue *container, MoolahValue *element);
+size_t MoolahValueLen(MoolahValue *container);
 
 #endif
-

@@ -11,7 +11,7 @@ static char *RESET_ANSI = "\x1b[0m";
 static char* UNDERLINE_ANSI = "\x1b[4m";
 
 
-void SetPrefix(char *prefix)
+void MoolahCliSetPrefix(char *prefix)
 {
     PROGRAM_NAME = prefix;
 }

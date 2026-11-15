@@ -1,43 +1,13 @@
 #include "value.h"
 #include <stdlib.h>
 
-#define DEEPFREE 0
-
-Value *MoolahValueNew(ValueKind kind)
+MoolahValue *MoolahValueAppend(MoolahValue *container, MoolahValue *element)
 {
-    Value *value = malloc(sizeof(Value));
-
-    if (!value)
+    if (container->kind != MOOLAH_VALUE_LIST)
         return NULL;
-
-    value->kind = kind;
-    value->free = NULL;
-
-    if (kind == VALUE_LIST)
-        value->list = NULL;
-
-    return value;
-}
-
-Value *MoolahValueNewEx(ValueKind kind, void (*free)(Value *value))
-{
-    Value *value = MoolahValueNew(kind);
-
-    if (!value)
-        return NULL;
-
-    value->free = free ? free : (DEEPFREE ? MoolahValueDeepFree : MoolahValueFree);
-
-    return value;
-}
-
-Value *MoolahValueAppend(Value *container, Value *element)
-{
-    if (container->kind != VALUE_LIST)
-        return NULL;
-    container = container ? container : MoolahValueNew(VALUE_LIST);
-    element = element ?  element : MoolahValueNew(VALUE_NULL);
-    ValueNode *node = malloc(sizeof(ValueNode));
+    container = container ? container : MoolahValueNew(MOOLAH_VALUE_LIST);
+    element = element ?  element : MoolahValueNew(MOOLAH_VALUE_NULL);
+    MoolahValueNode *node = malloc(sizeof(MoolahValueNode));
 
     if (!node)
         return NULL;
@@ -51,7 +21,7 @@ Value *MoolahValueAppend(Value *container, Value *element)
         return container;
     }
 
-    ValueNode *current = container->list;
+    MoolahValueNode *current = container->list;
 
     while (current->next)
         current = current->next;
@@ -60,49 +30,49 @@ Value *MoolahValueAppend(Value *container, Value *element)
     return container;
 }
 
-size_t MoolahValueLen(Value *container)
+size_t MoolahValueLen(MoolahValue *container)
 {
-    if (!container || container->kind != VALUE_LIST)
+    if (!container || container->kind != MOOLAH_VALUE_LIST)
         return 0;
 
     size_t len = 0;
 
-    for (ValueNode *node = container->list; node; node = node->next)
+    for (MoolahValueNode *node = container->list; node; node = node->next)
         len++;
 
     return len;
 }
 
-static void ValueClearContents(Value *value)
+static void MoolahValueClearContents(MoolahValue *value)
 {
     if (!value) return;
-    if (value->kind == VALUE_LIST)
+    if (value->kind == MOOLAH_VALUE_LIST)
     {
-        ValueNode *node = value->list;
+        MoolahValueNode *node = value->list;
         while (node)
         {
-            ValueNode *next = node->next;
-            ValueClearContents(&node->value);
+            MoolahValueNode *next = node->next;
+            MoolahValueClearContents(&node->value);
             free(node);
             node = next;
         }
         value->list = NULL;
     }
-    else if (value->kind == VALUE_STRING)
+    else if (value->kind == MOOLAH_VALUE_STRING)
     {
         free(value->s);
         value->s = NULL;
     }
 }
 
-void MoolahValueDeepFree(Value *value)
+void MoolahValueDeepFree(MoolahValue *value)
 {
     if (!value) return;
-    ValueClearContents(value);
+    MoolahValueClearContents(value);
     free(value);
 }
 
-void MoolahValueFree(Value *value)
+void MoolahValueFree(MoolahValue *value)
 {
     if (!value) return;
     if (value->free) value->free(value);
