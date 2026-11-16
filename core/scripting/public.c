@@ -5,6 +5,7 @@
 #include "rdp.h"
 #include "rtsp.h"
 #include "ssh.h"
+#include "sockets.h"
 #include "telnet.h"
 
 #include "../../lua/include/lauxlib.h"
@@ -97,6 +98,7 @@ int LuaInit(lua_State *lua, ProbeConfig *config)
     //register our stdlib
     LuaUtils_RegisterPrint(lua);
     LuaSSH_Register(lua);
+    LuaSockets_Register(lua);
     LuaTelnet_Register(lua);
     LuaRTSP_Register(lua);
     LuaRDP_Register(lua);

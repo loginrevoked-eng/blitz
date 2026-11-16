@@ -24,16 +24,34 @@ static const char *FormatArguments(lua_State *state)
     for (int i = 1; i <= argument_count; ++i) {
         size_t length = 0;
         const char *text = luaL_tolstring(state, i, &length);
-        size_t start = 0;
+        int text_ref = luaL_ref(state, LUA_REGISTRYINDEX);
+        int has_null = 0;
         for (size_t j = 0; j < length; ++j) {
-            if (text[j] != '\0')
-                continue;
-            luaL_addlstring(&buffer, text + start, j - start);
-            luaL_addlstring(&buffer, "\\0", 2);
-            start = j + 1;
+            if (text[j] == '\0') {
+                has_null = 1;
+                break;
+            }
         }
-        luaL_addlstring(&buffer, text + start, length - start);
-        lua_pop(state, 1);
+
+        if (has_null) {
+            luaL_Buffer escaped;
+            luaL_buffinit(state, &escaped);
+            size_t start = 0;
+            for (size_t j = 0; j < length; ++j) {
+                if (text[j] != '\0')
+                    continue;
+                luaL_addlstring(&escaped, text + start, j - start);
+                luaL_addlstring(&escaped, "\\0", 2);
+                start = j + 1;
+            }
+            luaL_addlstring(&escaped, text + start, length - start);
+            luaL_pushresult(&escaped);
+            luaL_addvalue(&buffer);
+        } else {
+            lua_rawgeti(state, LUA_REGISTRYINDEX, text_ref);
+            luaL_addvalue(&buffer);
+        }
+        luaL_unref(state, LUA_REGISTRYINDEX, text_ref);
         if (i != argument_count)
             luaL_addchar(&buffer, '\t');
     }

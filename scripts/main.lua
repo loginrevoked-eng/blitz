@@ -5,6 +5,7 @@ local handlers = {
     require("scripts.telnet"),
     require("scripts.rtsp"),
     require("scripts.rdp"),
+    require("scripts.banners"),
 }
 
 local M = {}
@@ -15,6 +16,7 @@ function M.main(host)
         return false
     end
 
+    local any_confirmed = false
     for _, probe in ipairs(host.tcp or {}) do
         if probe.result == TCP_OPEN then
             for _, handler in ipairs(handlers) do
@@ -23,14 +25,13 @@ function M.main(host)
                     if not ok then
                         logging.error("script handler failed:", confirmed)
                     elseif confirmed then
-                        return true
+                        any_confirmed = true
                     end
-                    break
                 end
             end
         end
     end
-    return false
+    return any_confirmed
 end
 
 return M
