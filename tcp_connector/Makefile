@@ -3,9 +3,9 @@ CFLAGS = -Wall -Wextra -std=c11
 CPPFLAGS = -I..
 LDLIBS = -lws2_32 -lmswsock
 
-TARGET = ../bin/iocp-pool.exe
-SOURCES = pool.c lists.c ctors.c ../hashmap/hashmap.c main.c
-HEADERS = pool.h lists.h ctors.h ../hashmap/hashmap.h ../value/value.h
+TARGET = ../bin/tcp-connector.exe
+SOURCES = loop.c task.c public.c objects.c utils.c init.c finish.c drainer.c ../hashmap/hashmap.c main.c
+HEADERS = public.h models.h ../hashmap/hashmap.h ../value/value.h
 
 .PHONY: all clean
 

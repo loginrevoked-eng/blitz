@@ -8,7 +8,7 @@ BUILD_DIR = build
 CORE = $(BIN_DIR)/core.exe
 IO_ASYNC_TEST = $(BIN_DIR)/io-async-test.exe
 IO_ASYNC_MIN = $(BIN_DIR)/io-async-min.exe
-IOCP_POOL = $(BIN_DIR)/iocp-pool.exe
+TCP_CONNECTOR = $(BIN_DIR)/tcp-connector.exe
 CORE_LUA_LIB = lua/lib/liblua.a
 
 CORE_SRC = \
@@ -29,7 +29,7 @@ CORE_SRC = \
 	cmdline/value.c
 CORE_OBJ = $(patsubst %.c,$(BUILD_DIR)/%.o,$(CORE_SRC))
 
-.PHONY: all core io-async-test io-async-min iocp-pool clean
+.PHONY: all core io-async-test io-async-min tcp-connector clean
 
 all: core
 
@@ -39,7 +39,7 @@ io-async-test: $(IO_ASYNC_TEST)
 
 io-async-min: $(IO_ASYNC_MIN)
 
-iocp-pool: $(IOCP_POOL)
+tcp-connector: $(TCP_CONNECTOR)
 
 $(IO_ASYNC_TEST): io-async.c io-async-test.c io-async.h | $(BIN_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ io-async.c io-async-test.c -lws2_32 -lmswsock
@@ -47,8 +47,11 @@ $(IO_ASYNC_TEST): io-async.c io-async-test.c io-async.h | $(BIN_DIR)
 $(IO_ASYNC_MIN): io-async-min.c | $(BIN_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ io-async-min.c -lws2_32 -lmswsock
 
-$(IOCP_POOL): iocp_pool/pool.c iocp_pool/pool.h iocp_pool/lists.c iocp_pool/lists.h iocp_pool/ctors.c iocp_pool/ctors.h iocp_pool/main.c hashmap/hashmap.c hashmap/hashmap.h value/value.h | $(BIN_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ iocp_pool/pool.c iocp_pool/lists.c iocp_pool/ctors.c hashmap/hashmap.c iocp_pool/main.c -lws2_32 -lmswsock
+TCP_CONNECTOR_SRC = tcp_connector/loop.c tcp_connector/task.c tcp_connector/public.c tcp_connector/objects.c tcp_connector/utils.c tcp_connector/init.c tcp_connector/finish.c tcp_connector/drainer.c tcp_connector/main.c
+TCP_CONNECTOR_HEADERS = tcp_connector/public.h tcp_connector/models.h
+
+$(TCP_CONNECTOR): $(TCP_CONNECTOR_SRC) $(TCP_CONNECTOR_HEADERS) hashmap/hashmap.c hashmap/hashmap.h value/value.h | $(BIN_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $(TCP_CONNECTOR_SRC) hashmap/hashmap.c -lws2_32 -lmswsock
 
 $(CORE): $(CORE_OBJ) $(CORE_LUA_LIB) | $(BIN_DIR)
 	$(CC) $(CFLAGS) -o $@ $(CORE_OBJ) $(CORE_LUA_LIB) $(LDLIBS)
@@ -61,4 +64,4 @@ $(BIN_DIR):
 	@mkdir -p "$@"
 
 clean:
-	rm -rf $(BUILD_DIR) $(CORE) $(IO_ASYNC_TEST) $(IO_ASYNC_MIN) $(IOCP_POOL)
+	rm -rf $(BUILD_DIR) $(CORE) $(IO_ASYNC_TEST) $(IO_ASYNC_MIN) $(TCP_CONNECTOR)
