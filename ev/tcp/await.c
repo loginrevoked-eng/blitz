@@ -34,7 +34,7 @@ DWORD TcpConnectorAwaitTask(const char *task_id)
     if (!task)
     {
         ReleaseSRWLockExclusive(loop->control.lock);
-        SetConnectorError(loop, TCP_CONNECTOR_ERROR_TASK_NOT_FOUND);
+        TcpConnectorSetError(loop, TCP_CONNECTOR_ERROR_TASK_NOT_FOUND);
         return TCP_CONNECTOR_ERROR_TASK_NOT_FOUND;
     }
     DWORD wait_error = TcpConnectorAwaitTaskState(loop, task);

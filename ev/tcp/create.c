@@ -42,29 +42,29 @@ DWORD TcpConnectorCreateTask(TcpConnectorTaskOption options, const char *task_id
         return TCP_CONNECTOR_EVENT_LOOP_NO_INITIALIZED;
 
     if (task_id == NULL || task_id[0] == '\0') {
-        SetConnectorError(connector, TCP_CONNECTOR_ERROR_INVALID_ARGUMENT);
+        TcpConnectorSetError(connector, TCP_CONNECTOR_ERROR_INVALID_ARGUMENT);
         return TCP_CONNECTOR_INVALID_ARGUMENT;
     }
     if (options.kind != TCP_CONNECTOR_TASK_CONNECT && options.kind != TCP_CONNECTOR_TASK_SEND &&
         options.kind != TCP_CONNECTOR_TASK_RECV) {
-        SetConnectorError(connector, TCP_CONNECTOR_ERROR_UNSUPPORTED_TASK);
+        TcpConnectorSetError(connector, TCP_CONNECTOR_ERROR_UNSUPPORTED_TASK);
         return TCP_CONNECTOR_NOT_SUPPORTED;
     }
     if (options.kind == TCP_CONNECTOR_TASK_CONNECT && options.conn_opt.port == 0) {
-        SetConnectorError(connector, TCP_CONNECTOR_ERROR_INVALID_ARGUMENT);
+        TcpConnectorSetError(connector, TCP_CONNECTOR_ERROR_INVALID_ARGUMENT);
         return WSAEINVAL;
     }
     if ((options.kind == TCP_CONNECTOR_TASK_SEND || options.kind == TCP_CONNECTOR_TASK_RECV) &&
         (options.sr_opt.socket_id == NULL || options.sr_opt.payload == NULL ||
             (options.kind == TCP_CONNECTOR_TASK_SEND && options.sr_opt.payload->len == 0) ||
             (options.kind == TCP_CONNECTOR_TASK_RECV && options.sr_opt.payload->cap == 0))) {
-        SetConnectorError(connector, TCP_CONNECTOR_ERROR_INVALID_ARGUMENT);
+        TcpConnectorSetError(connector, TCP_CONNECTOR_ERROR_INVALID_ARGUMENT);
         return WSAEINVAL;
     }
 
     TcpConnectorTask *task = TcpConnectorTaskNew(task_id, options);
     if (task == NULL) {
-        SetConnectorError(connector, TCP_CONNECTOR_ERROR_OUT_OF_MEMORY);
+        TcpConnectorSetError(connector, TCP_CONNECTOR_ERROR_OUT_OF_MEMORY);
         return TCP_CONNECTOR_OUT_OF_MEMORY;
     }
     task->on_completed = on_completed;
@@ -79,7 +79,7 @@ DWORD TcpConnectorCreateTask(TcpConnectorTaskOption options, const char *task_id
     if (TcpConnectorFindTask(connector, task_id) != NULL) {
         ReleaseSRWLockExclusive(connector->control.lock);
         TcpConnectorTaskDestroy(task);
-        SetConnectorError(connector, TCP_CONNECTOR_ERROR_DUPLICATE_TASK_ID);
+        TcpConnectorSetError(connector, TCP_CONNECTOR_ERROR_DUPLICATE_TASK_ID);
         return TCP_CONNECTOR_ALREADY_EXISTS;
     }
 
@@ -93,7 +93,7 @@ DWORD TcpConnectorCreateTask(TcpConnectorTaskOption options, const char *task_id
             if (completion_error != TCP_CONNECTOR_SUCCESS) {
                 ReleaseSRWLockExclusive(connector->control.lock);
                 TcpConnectorTaskDestroy(task);
-                SetConnectorError(connector, completion_error);
+                TcpConnectorSetError(connector, completion_error);
                 return completion_error;
             }
             continue;
@@ -120,17 +120,17 @@ DWORD TcpConnectorCreateTask(TcpConnectorTaskOption options, const char *task_id
     if (TcpConnectorFindTask(connector, task_id) != NULL) {
         ReleaseSRWLockExclusive(connector->control.lock);
         TcpConnectorTaskDestroy(task);
-        SetConnectorError(connector, TCP_CONNECTOR_ERROR_DUPLICATE_TASK_ID);
+        TcpConnectorSetError(connector, TCP_CONNECTOR_ERROR_DUPLICATE_TASK_ID);
         return TCP_CONNECTOR_ALREADY_EXISTS;
     }
-    if (!HashMap_Set(connector->lookup.tasks, task->id, PointerValue(task))) {
+    if (!HashMap_Set(connector->lookup.tasks, task->id, TcpConnectorPointerValue(task))) {
         ReleaseSRWLockExclusive(connector->control.lock);
         TcpConnectorTaskDestroy(task);
-        SetConnectorError(connector, TCP_CONNECTOR_ERROR_OUT_OF_MEMORY);
+        TcpConnectorSetError(connector, TCP_CONNECTOR_ERROR_OUT_OF_MEMORY);
         return TCP_CONNECTOR_OUT_OF_MEMORY;
     }
 
-    SetConnectorError(connector, TCP_CONNECTOR_SUCCESS);
+    TcpConnectorSetError(connector, TCP_CONNECTOR_SUCCESS);
     TcpConnectorStartTask(connector, task);
     ReleaseSRWLockExclusive(connector->control.lock);
     return TCP_CONNECTOR_SUCCESS;

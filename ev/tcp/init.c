@@ -102,13 +102,13 @@ fail_threads:
     TcpConnectorDetachLoop(connector);
     AcquireSRWLockExclusive(connector->control.lock);
     connector->control.callback_stopping = TRUE;
+    atomic_store(&connector->control.callback_runner_stop, TRUE);
     WakeAllConditionVariable(&connector->control.callback_available);
     ReleaseSRWLockExclusive(connector->control.lock);
     for (uint32_t i = 0; i < started_callback_threads; ++i) {
         WaitForSingleObject(connector->control.callback_threads[i], INFINITE);
         CloseHandle(connector->control.callback_threads[i]);
     }
-    atomic_store(&connector->control.callback_runner_stop, TRUE);
 fail_winsock:
     free(connector->control.callback_threads);
     if (connector->internal.completion_port != NULL)

@@ -12,7 +12,7 @@ void TcpConnectorTaskReadySubmitCallback(TcpConnectorLoop *connector, TcpConnect
         !connector->control.callback_stopping) {
         if (!SleepConditionVariableSRW(&connector->control.callback_space,
                 connector->control.lock, INFINITE, 0)) {
-            SetConnectorError(connector, GetLastError());
+            TcpConnectorSetError(connector, GetLastError());
             return;
         }
     }
@@ -20,7 +20,7 @@ void TcpConnectorTaskReadySubmitCallback(TcpConnectorLoop *connector, TcpConnect
         return;
     TaskCallback *callback = malloc(sizeof(*callback));
     if (callback == NULL) {
-        SetConnectorError(connector, TCP_CONNECTOR_ERROR_OUT_OF_MEMORY);
+        TcpConnectorSetError(connector, TCP_CONNECTOR_ERROR_OUT_OF_MEMORY);
         return;
     }
     *callback = (TaskCallback){ .cb = task->on_completed, .arg = task, .next = NULL };
@@ -34,24 +34,6 @@ void TcpConnectorTaskReadySubmitCallback(TcpConnectorLoop *connector, TcpConnect
     WakeConditionVariable(&connector->control.callback_available);
 }
 
-void TcpConnectorReportCompletion(TcpConnectorLoop *connector, TcpConnectorTask *task)
-{
-    if (connector == NULL || task == NULL || task->completion_queued ||
-        task->completion_reported)
-        return;
-    TcpConnectorPendingIo *io = TcpConnectorFindPendingIo(connector, task->id);
-    if (io != NULL && io->in_flight)
-        return;
-    task->completion_queued = TRUE;
-    task->completion_next = NULL;
-    if (connector->control.completion_tail != NULL)
-        connector->control.completion_tail->completion_next = task;
-    else
-        connector->control.completion_head = task;
-    connector->control.completion_tail = task;
-    WakeAllConditionVariable(&connector->control.task_finished);
-}
-
 TaskCallback *TcpConnectorTakeCallback(TcpConnectorLoop *connector)
 {
     while (connector->control.callback_head == NULL &&
@@ -59,7 +41,7 @@ TaskCallback *TcpConnectorTakeCallback(TcpConnectorLoop *connector)
         !atomic_load(&connector->control.callback_runner_stop)) {
         if (!SleepConditionVariableSRW(&connector->control.callback_available,
                 connector->control.lock, INFINITE, 0)) {
-            SetConnectorError(connector, GetLastError());
+            TcpConnectorSetError(connector, GetLastError());
             return NULL;
         }
     }

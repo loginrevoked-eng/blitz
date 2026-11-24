@@ -32,8 +32,6 @@ typedef struct {
     atomic_bool callback_runner_stop;
     TaskCallback *callback_head;
     TaskCallback *callback_tail;
-    TcpConnectorTask *completion_head;
-    TcpConnectorTask *completion_tail;
     uint32_t blocked_creators;
     BOOL closing;
     atomic_uint error;
@@ -72,15 +70,14 @@ typedef struct {
 } TcpConnectorPendingIo;
 
 
-Value PointerValue(void *pointer);
-void SetConnectorError(TcpConnectorLoop *connector, DWORD error);
+Value TcpConnectorPointerValue(void *pointer);
+void TcpConnectorSetError(TcpConnectorLoop *connector, DWORD error);
 TcpConnectorTask *TcpConnectorFindTask(TcpConnectorLoop *connector, const char *task_id);
 TcpConnectorPendingIo *TcpConnectorFindPendingIo(TcpConnectorLoop *connector, const char *task_id);
-TcpConnectorSocket *FindSocket(TcpConnectorLoop *connector, const char *socket_id);
-void CloseSocket(TcpConnectorSocket *socket);
-void RemovePendingIo(TcpConnectorLoop *connector, TcpConnectorPendingIo *io);
+TcpConnectorSocket *TcpConnectorFindSocket(TcpConnectorLoop *connector, const char *socket_id);
+void TcpConnectorCloseSocket(TcpConnectorSocket *socket);
+void TcpConnectorRemovePendingIo(TcpConnectorLoop *connector, TcpConnectorPendingIo *io);
 void TcpConnectorTaskReadySubmitCallback(TcpConnectorLoop *connector, TcpConnectorTask *task);
-void TcpConnectorReportCompletion(TcpConnectorLoop *connector, TcpConnectorTask *task);
 TaskCallback *TcpConnectorTakeCallback(TcpConnectorLoop *connector);
 int TcpConnectorStartTask(TcpConnectorLoop *connector, TcpConnectorTask *task);
 ByteArray *TcpConnectorByteArrayNew(uint32_t capacity);

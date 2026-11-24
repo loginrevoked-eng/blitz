@@ -10,7 +10,7 @@ DWORD WINAPI TcpConnectorIoCompletionWorker(LPVOID argument)
         {
             DWORD error = TcpConnectorHandleCompletion(loop, INFINITE);
             if (error != TCP_CONNECTOR_SUCCESS)
-                SetConnectorError(loop, error);
+                TcpConnectorSetError(loop, error);
         }
         return 0;
     }

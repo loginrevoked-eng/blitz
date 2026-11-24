@@ -32,12 +32,13 @@ DWORD TcpConnectorClearEventloop(void)
         task->status = TCP_CONNECTOR_TASK_CANCELED;
         task->WSA_error = WSA_OPERATION_ABORTED;
         if (io == NULL || !io->in_flight) {
-            RemovePendingIo(connector, io);
+            WakeAllConditionVariable(&connector->control.task_finished);
+            TcpConnectorRemovePendingIo(connector, io);
             TcpConnectorTaskReadySubmitCallback(connector, task);
         } else {
             io->cancel_requested = TRUE;
             if (task->options.kind == TCP_CONNECTOR_TASK_CONNECT)
-                CloseSocket(io->socket);
+                TcpConnectorCloseSocket(io->socket);
             else if (io->socket != NULL)
                 CancelIoEx((HANDLE)io->socket->handle, &io->overlapped);
         }
@@ -68,19 +69,18 @@ DWORD TcpConnectorClearEventloop(void)
 
     AcquireSRWLockExclusive(connector->control.lock);
     connector->control.callback_stopping = TRUE;
+    atomic_store(&connector->control.callback_runner_stop, TRUE);
     WakeAllConditionVariable(&connector->control.callback_available);
     ReleaseSRWLockExclusive(connector->control.lock);
     for (uint32_t i = 0; i < connector->control.callback_thread_count; ++i) {
         WaitForSingleObject(connector->control.callback_threads[i], INFINITE);
         CloseHandle(connector->control.callback_threads[i]);
     }
-    atomic_store(&connector->control.callback_runner_stop, TRUE);
-
     iter = (HashMapIter){ 0 };
     for (Value *value = HashMap_IterNext(connector->lookup.sockets, &iter);
          value != NULL; value = HashMap_IterNext(connector->lookup.sockets, &iter)) {
         TcpConnectorSocket *socket = value->kind == VALUE_POINTER ? value->ptr : NULL;
-        if (socket != NULL) { CloseSocket(socket); free(socket); }
+        if (socket != NULL) { TcpConnectorCloseSocket(socket); free(socket); }
     }
     iter = (HashMapIter){ 0 };
     for (Value *value = HashMap_IterNext(connector->lookup.tasks, &iter);

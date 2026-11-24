@@ -1,7 +1,7 @@
 #include "models.h"
 #include <stdlib.h>
 
-Value PointerValue(void *pointer)
+Value TcpConnectorPointerValue(void *pointer)
 {
     Value value = { 0 };
     value.kind = VALUE_POINTER;
@@ -9,7 +9,7 @@ Value PointerValue(void *pointer)
     return value;
 }
 
-void SetConnectorError(TcpConnectorLoop *connector, DWORD error)
+void TcpConnectorSetError(TcpConnectorLoop *connector, DWORD error)
 {
     if (connector != NULL)
         atomic_store(&connector->control.error, (unsigned int)error);
@@ -27,13 +27,13 @@ TcpConnectorPendingIo *TcpConnectorFindPendingIo(TcpConnectorLoop *connector, co
     return value != NULL && value->kind == VALUE_POINTER ? value->ptr : NULL;
 }
 
-TcpConnectorSocket *FindSocket(TcpConnectorLoop *connector, const char *socket_id)
+TcpConnectorSocket *TcpConnectorFindSocket(TcpConnectorLoop *connector, const char *socket_id)
 {
     Value *value = HashMap_Get(connector->lookup.sockets, socket_id);
     return value != NULL && value->kind == VALUE_POINTER ? value->ptr : NULL;
 }
 
-void CloseSocket(TcpConnectorSocket *socket)
+void TcpConnectorCloseSocket(TcpConnectorSocket *socket)
 {
     if (socket != NULL && socket->handle != INVALID_SOCKET) {
         closesocket(socket->handle);
@@ -46,7 +46,7 @@ void CloseSocket(TcpConnectorSocket *socket)
     }
 }
 
-void RemovePendingIo(TcpConnectorLoop *connector, TcpConnectorPendingIo *io_request)
+void TcpConnectorRemovePendingIo(TcpConnectorLoop *connector, TcpConnectorPendingIo *io_request)
 {
     if (io_request == NULL)
         return;

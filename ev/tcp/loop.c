@@ -47,7 +47,7 @@ static void FinishSynchronousFailure(TcpConnectorLoop *connector, TcpConnectorTa
     }
 
     SetTaskFinished(connector, task, error, TCP_CONNECTOR_TASK_COMPLETED);
-    RemovePendingIo(connector, io_request);
+    TcpConnectorRemovePendingIo(connector, io_request);
 }
 
 static TcpConnectorPendingIo *GetOrCreatePendingIo(TcpConnectorLoop *connector, TcpConnectorTask *task)
@@ -60,7 +60,7 @@ static TcpConnectorPendingIo *GetOrCreatePendingIo(TcpConnectorLoop *connector, 
     if (io_request == NULL)
         return NULL;
     io_request->task_id = task->id;
-    if (!HashMap_Set(connector->lookup.pending_io, task->id, PointerValue(io_request))) {
+    if (!HashMap_Set(connector->lookup.pending_io, task->id, TcpConnectorPointerValue(io_request))) {
         free(io_request);
         return NULL;
     }
@@ -96,7 +96,7 @@ static int StartConnectTask(TcpConnectorLoop *connector, TcpConnectorTask *task,
         NULL, 0, WSA_FLAG_OVERLAPPED);
     if (socket->handle == INVALID_SOCKET) {
         DWORD error = (DWORD)WSAGetLastError();
-        CloseSocket(socket);
+        TcpConnectorCloseSocket(socket);
         free(socket);
         FinishSynchronousFailure(connector, task, io_request, error, TRUE);
         return 0;
@@ -108,7 +108,7 @@ static int StartConnectTask(TcpConnectorLoop *connector, TcpConnectorTask *task,
     if (bind(socket->handle, (struct sockaddr *)&local, sizeof(local))
             == SOCKET_ERROR) {
         DWORD error = (DWORD)WSAGetLastError();
-        CloseSocket(socket);
+        TcpConnectorCloseSocket(socket);
         free(socket);
         FinishSynchronousFailure(connector, task, io_request, error, TRUE);
         return 0;
@@ -117,14 +117,14 @@ static int StartConnectTask(TcpConnectorLoop *connector, TcpConnectorTask *task,
     if (CreateIoCompletionPort((HANDLE)socket->handle, connector->internal.completion_port,
             (ULONG_PTR)socket, 0) == NULL) {
         DWORD error = GetLastError();
-        CloseSocket(socket);
+        TcpConnectorCloseSocket(socket);
         free(socket);
         FinishSynchronousFailure(connector, task, io_request, error, TRUE);
         return 0;
     }
 
-    if (!HashMap_Set(connector->lookup.sockets, task->id, PointerValue(socket))) {
-        CloseSocket(socket);
+    if (!HashMap_Set(connector->lookup.sockets, task->id, TcpConnectorPointerValue(socket))) {
+        TcpConnectorCloseSocket(socket);
         free(socket);
         FinishSynchronousFailure(connector, task, io_request,
             TCP_CONNECTOR_OUT_OF_MEMORY, TRUE);
@@ -151,7 +151,7 @@ static int StartConnectTask(TcpConnectorLoop *connector, TcpConnectorTask *task,
     if (!started && WSAGetLastError() != WSA_IO_PENDING) {
         DWORD error = (DWORD)WSAGetLastError();
         HashMap_Remove(connector->lookup.sockets, task->id);
-        CloseSocket(socket);
+        TcpConnectorCloseSocket(socket);
         if (socket->pending_tasks > 0)
             --socket->pending_tasks;
         free(socket);
@@ -169,7 +169,7 @@ static int StartSocketTask(TcpConnectorLoop *connector, TcpConnectorTask *task,
     TcpConnectorPendingIo *io_request)
 {
     TcpConnectorSROption *options = &task->options.sr_opt;
-    TcpConnectorSocket *socket = FindSocket(connector, options->socket_id);
+    TcpConnectorSocket *socket = TcpConnectorFindSocket(connector, options->socket_id);
     if (socket == NULL || !socket->connected ||
         socket->handle == INVALID_SOCKET) {
         FinishSynchronousFailure(connector, task, io_request, WSAENOTCONN, FALSE);
@@ -251,7 +251,7 @@ static void SetTaskFinished(TcpConnectorLoop *connector, TcpConnectorTask *task,
 {
     task->status = status;
     task->WSA_error = error;
-    TcpConnectorReportCompletion(connector, task);
+    WakeAllConditionVariable(&connector->control.task_finished);
     TcpConnectorTaskReadySubmitCallback(connector, task);
 }
 
@@ -273,7 +273,7 @@ static void CancelExpired(TcpConnectorLoop *connector)
             continue;
         io->timed_out = TRUE;
         SetTaskFinished(connector, task, WSAETIMEDOUT, TCP_CONNECTOR_TASK_CANCELED);
-        CloseSocket(io->socket);
+        TcpConnectorCloseSocket(io->socket);
     }
 }
 
@@ -306,7 +306,7 @@ DWORD TcpConnectorHandleCompletion(TcpConnectorLoop *connector, DWORD wait_ms)
     if (task == NULL || TcpConnectorFindPendingIo(connector, io_request->task_id) != io_request ||
         !io_request->in_flight || (TcpConnectorSocket *)key != io_request->socket) {
         ReleaseSRWLockExclusive(connector->control.lock);
-        SetConnectorError(connector, TCP_CONNECTOR_INVALID_DATA);
+        TcpConnectorSetError(connector, TCP_CONNECTOR_INVALID_DATA);
         return TCP_CONNECTOR_INVALID_DATA;
     }
 
@@ -325,11 +325,11 @@ DWORD TcpConnectorHandleCompletion(TcpConnectorLoop *connector, DWORD wait_ms)
         SetTaskFinished(connector, task, WSA_OPERATION_ABORTED, TCP_CONNECTOR_TASK_CANCELED);
         if (task->options.kind == TCP_CONNECTOR_TASK_CONNECT && socket != NULL) {
             HashMap_Remove(connector->lookup.sockets, task->id);
-            CloseSocket(socket);
+            TcpConnectorCloseSocket(socket);
             free(socket);
             io_request->socket = NULL;
         }
-        RemovePendingIo(connector, io_request);
+        TcpConnectorRemovePendingIo(connector, io_request);
     } else if (task->options.kind == TCP_CONNECTOR_TASK_CONNECT) {
         if (completion_error == TCP_CONNECTOR_SUCCESS) {
             if (setsockopt(socket->handle, SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT,
@@ -340,10 +340,10 @@ DWORD TcpConnectorHandleCompletion(TcpConnectorLoop *connector, DWORD wait_ms)
         if (completion_error == TCP_CONNECTOR_SUCCESS) {
             socket->connected = TRUE;
             SetTaskFinished(connector, task, TCP_CONNECTOR_SUCCESS, TCP_CONNECTOR_TASK_COMPLETED);
-            RemovePendingIo(connector, io_request);
+            TcpConnectorRemovePendingIo(connector, io_request);
         } else {
             HashMap_Remove(connector->lookup.sockets, task->id);
-            CloseSocket(socket);
+            TcpConnectorCloseSocket(socket);
             free(socket);
             io_request->socket = NULL;
             if (!io_request->timed_out &&
@@ -356,14 +356,14 @@ DWORD TcpConnectorHandleCompletion(TcpConnectorLoop *connector, DWORD wait_ms)
                 TcpConnectorStartTask(connector, task);
             } else {
                 SetTaskFinished(connector, task, completion_error, TCP_CONNECTOR_TASK_COMPLETED);
-                RemovePendingIo(connector, io_request);
+                TcpConnectorRemovePendingIo(connector, io_request);
             }
         }
     } else {
         if (task->options.kind == TCP_CONNECTOR_TASK_RECV && completion_error == TCP_CONNECTOR_SUCCESS)
             task->options.sr_opt.payload->len = transferred;
         SetTaskFinished(connector, task, completion_error, TCP_CONNECTOR_TASK_COMPLETED);
-        RemovePendingIo(connector, io_request);
+        TcpConnectorRemovePendingIo(connector, io_request);
     }
 
     ReleaseSRWLockExclusive(connector->control.lock);

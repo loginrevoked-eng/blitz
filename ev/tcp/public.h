@@ -79,12 +79,9 @@ struct TcpConnectorTask {
     TcpConnectorStatus status;
     DWORD WSA_error;
     TcpConnectorCompletionCallback on_completed;
-    BOOL completion_reported;
     BOOL callback_reported;
     BOOL callback_running;
     BOOL callback_queued;
-    BOOL completion_queued;
-    struct TcpConnectorTask *completion_next;
     void *userdata;
 };
 
@@ -98,7 +95,6 @@ DWORD TcpConnectorCreateTask(TcpConnectorTaskOption options, const char *task_id
 DWORD TcpConnectorGetTask(const char *task_id, TcpConnectorTask *task);
 DWORD TcpConnectorCancelTask(const char *task_id);
 DWORD TcpConnectorAwaitTask(const char *task_id);
-DWORD TcpConnectorWaitTasks(const char **task_id);
 DWORD TcpConnectorCloseSocketById(char *socket_id);
 
 #endif
