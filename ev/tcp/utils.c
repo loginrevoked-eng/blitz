@@ -9,10 +9,10 @@ Value PointerValue(void *pointer)
     return value;
 }
 
-void SetConnectorError(TcpConnectorLoop *connector, TcpConnectorError error)
+void SetConnectorError(TcpConnectorLoop *connector, DWORD error)
 {
     if (connector != NULL)
-        atomic_store(&connector->interf.error, (unsigned int)error);
+        atomic_store(&connector->control.error, (unsigned int)error);
 }
 
 TcpConnectorTask *FindTask(TcpConnectorLoop *connector, const char *task_id)
@@ -40,6 +40,10 @@ void CloseSocket(TcpConnectorSocket *socket)
         socket->handle = INVALID_SOCKET;
         socket->connected = FALSE;
     }
+    if (socket != NULL) {
+        free(socket->id);
+        socket->id = NULL;
+    }
 }
 
 void RemovePendingIo(TcpConnectorLoop *connector, TcpConnectorPendingIo *io_request)
@@ -50,16 +54,4 @@ void RemovePendingIo(TcpConnectorLoop *connector, TcpConnectorPendingIo *io_requ
     free(io_request);
 }
 
-DWORD TaskErrorToConnectorError(DWORD error)
-{
-    if (error == ERROR_SUCCESS)
-        return TCP_CONNECTOR_SUCCESS;
-    if (error == ERROR_NOT_ENOUGH_MEMORY)
-        return TCP_CONNECTOR_ERROR_OUT_OF_MEMORY;
-    if (error == WSAETIMEDOUT)
-        return TCP_CONNECTOR_ERROR_TIMEOUT;
-    if (error == WSA_OPERATION_ABORTED)
-        return TCP_CONNECTOR_ERROR_CANCELED;
-    return TCP_CONNECTOR_ERROR_IO;
-}
 

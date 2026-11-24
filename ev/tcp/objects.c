@@ -55,8 +55,7 @@ TcpConnectorTask *TcpConnectorTaskNew(const char *task_id, TcpConnectorTaskOptio
                 options.sr_opt.socket_id, socket_id_length);
         }
     }
-    task->status = TCP_CONNECTOR_TASK_QUEUED;
-    task->error = TCP_CONNECTOR_SUCCESS;
+    task->status = TCP_CONNECTOR_TASK_PENDING;
     return task;
 }
 

@@ -15,6 +15,8 @@
 #include "../lua/include/lauxlib.h"
 #include <time.h>
 #include "worker.h"
+#include "banner.h"
+#include "../ev/tcp/public.h"
 
 
 static void ProbeInitCheckArgumentValidity(ProbeContext *ctx, int argc, char**argv)
@@ -37,11 +39,11 @@ static void ProbeInitCheckArgumentValidity(ProbeContext *ctx, int argc, char**ar
 static void EnsureScript(ProbeConfig *config)
 {
     if (config == NULL)
-    {
         Panic("Cannot ensure a script for a null probe config");
-    }
+    if (config->script == NULL)
+        return;
 
-    const char *path = config->script != NULL ? config->script : "main.lua";
+    const char *path = config->script;
     char *contents = Fs_ReadFile(path, NULL);
     if (contents == NULL)
     {
@@ -89,6 +91,7 @@ static void ProbeInitializeStats(ProbeContext *ctx)
     atomic_init(&ctx->stats.checked, 0);
     atomic_init(&ctx->stats.up, 0);
     atomic_init(&ctx->stats.down, 0);
+    atomic_init(&ctx->stats.chatty_hosts, 0);
     atomic_init(&ctx->stats.script_confirmed_hosts, 0);
     atomic_init(&ctx->stats.spawned_threads, 0);
     atomic_init(&ctx->stats.state.ui_running, 0);
@@ -113,6 +116,19 @@ void ProbeInitializeOrPanic(ProbeContext *ctx, int argc, char **argv)
         Panic("Couldn't initialize Winsock");
     }
     ctx->winsock_started = 1;
+
+    if (ctx->config.method & HOST_CHECK_METHOD_TCP) {
+        uint32_t pending_limit = ctx->config.workers > UINT32_MAX / 2u ?
+            UINT32_MAX : ctx->config.workers * 2u;
+        DWORD connector_error = TcpConnectorInitEventloop(pending_limit,
+            TCP_CONNECTOR_WITH_IO_COMPLETION_WORKER, pending_limit, ctx->config.workers);
+        if (connector_error != ERROR_SUCCESS)
+            Panic("Couldn't initialize TCP connector (error %lu)",
+                (unsigned long)connector_error);
+        ctx->tcp_connector_started = 1;
+        BannerConfigureConnect(ctx->config.options.tcp_options.probe.timeout_ms,
+            ctx->config.options.tcp_options.probe.retries);
+    }
 
 
     IpPickerFlags picker_flags = IP_PICKER_FLAGS_NONE;
@@ -148,6 +164,9 @@ void ProbeInitializeOrPanic(ProbeContext *ctx, int argc, char **argv)
     InitializeSRWLock(ctx->lock);
     ProbeInitializeStats(ctx);
 
+    ctx->start_event = CreateEvent(NULL, TRUE, FALSE, NULL);
+    if (ctx->start_event == NULL)
+        Panic("Couldn't create worker start barrier");
 
     for (uint32_t i = 0; i < ctx->config.workers; ++i)
     {
@@ -156,8 +175,10 @@ void ProbeInitializeOrPanic(ProbeContext *ctx, int argc, char **argv)
         {
             Panic("Couldn't initialize worker context for worker number %d", i);
         }
+        worker_ctx->start_event = ctx->start_event;
 
-        worker_ctx->lua = luaL_newstate();
+        if (ctx->config.script != NULL)
+            worker_ctx->lua = luaL_newstate();
 
         HANDLE worker = CreateThread(NULL, 0, ProbeWorker, worker_ctx, 0, NULL);
         if (!worker)
@@ -167,10 +188,15 @@ void ProbeInitializeOrPanic(ProbeContext *ctx, int argc, char **argv)
         }
         if (!HandleListPush(ctx->workers, worker))
         {
+            SetEvent(ctx->start_event);
             WaitForSingleObject(worker, INFINITE);
             CloseHandle(worker);
             Panic("Couldn't store worker handle for worker number %d", i);
         }
         atomic_fetch_add(&ctx->stats.spawned_threads, 1);
     }
+
+    unsigned int launched = atomic_load(&ctx->stats.spawned_threads);
+    Log("starting %u worker threads\n", launched);
+    SetEvent(ctx->start_event);
 }

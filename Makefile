@@ -13,6 +13,10 @@ CORE_LUA_LIB = lua/lib/liblua.a
 
 CORE_SRC = \
 	$(wildcard core/*.c core/ui/*.c core/scripting/*.c) \
+	ev/tcp/loop.c ev/tcp/task.c ev/tcp/public.c \
+	ev/tcp/objects.c ev/tcp/utils.c ev/tcp/init.c \
+	ev/tcp/finish.c ev/tcp/completion.c ev/tcp/cb.c \
+	hashmap/hashmap.c \
 	logging/logging.c \
 	utils/fs.c \
 	$(wildcard pool/*.c crypto/*.c) \
@@ -28,6 +32,10 @@ CORE_SRC = \
 	cmdline/panic.c \
 	cmdline/value.c
 CORE_OBJ = $(patsubst %.c,$(BUILD_DIR)/%.o,$(CORE_SRC))
+CORE_DEP = $(CORE_OBJ:.o=.d)
+
+.DEFAULT_GOAL := all
+-include $(CORE_DEP)
 
 .PHONY: all core io-async-test io-async-min tcp-connector clean
 
@@ -47,8 +55,8 @@ $(IO_ASYNC_TEST): io-async.c io-async-test.c io-async.h | $(BIN_DIR)
 $(IO_ASYNC_MIN): io-async-min.c | $(BIN_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ io-async-min.c -lws2_32 -lmswsock
 
-TCP_CONNECTOR_SRC = tcp_connector/loop.c tcp_connector/task.c tcp_connector/public.c tcp_connector/objects.c tcp_connector/utils.c tcp_connector/init.c tcp_connector/finish.c tcp_connector/drainer.c tcp_connector/main.c
-TCP_CONNECTOR_HEADERS = tcp_connector/public.h tcp_connector/models.h
+TCP_CONNECTOR_SRC = ev/tcp/loop.c ev/tcp/task.c ev/tcp/public.c ev/tcp/objects.c ev/tcp/utils.c ev/tcp/init.c ev/tcp/finish.c ev/tcp/completion.c ev/tcp/cb.c ev/tcp/main.c
+TCP_CONNECTOR_HEADERS = ev/tcp/public.h ev/tcp/models.h
 
 $(TCP_CONNECTOR): $(TCP_CONNECTOR_SRC) $(TCP_CONNECTOR_HEADERS) hashmap/hashmap.c hashmap/hashmap.h value/value.h | $(BIN_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $(TCP_CONNECTOR_SRC) hashmap/hashmap.c -lws2_32 -lmswsock
@@ -58,7 +66,7 @@ $(CORE): $(CORE_OBJ) $(CORE_LUA_LIB) | $(BIN_DIR)
 
 $(BUILD_DIR)/%.o: %.c
 	@mkdir -p "$(@D)"
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c "$<" -o "$@"
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -MF "$(@:.o=.d)" -c "$<" -o "$@"
 
 $(BIN_DIR):
 	@mkdir -p "$@"

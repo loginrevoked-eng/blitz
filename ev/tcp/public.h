@@ -7,11 +7,33 @@
 #include <stdint.h>
 
 typedef enum {
-    TCP_CONNECTOR_TASK_QUEUED = 1,
-    TCP_CONNECTOR_TASK_PENDING,
+    TCP_CONNECTOR_SUCCESS = 0,
+    TCP_CONNECTOR_EVENT_LOOP_NO_INITIALIZED = ERROR_INVALID_STATE,
+    TCP_CONNECTOR_INVALID_ARGUMENT = ERROR_INVALID_PARAMETER,
+    TCP_CONNECTOR_NOT_SUPPORTED = ERROR_NOT_SUPPORTED,
+    TCP_CONNECTOR_OUT_OF_MEMORY = ERROR_NOT_ENOUGH_MEMORY,
+    TCP_CONNECTOR_OPERATION_ABORTED = ERROR_OPERATION_ABORTED,
+    TCP_CONNECTOR_ALREADY_EXISTS = ERROR_ALREADY_EXISTS,
+    TCP_CONNECTOR_NOT_FOUND = ERROR_NOT_FOUND,
+    TCP_CONNECTOR_BUSY = ERROR_BUSY,
+    TCP_CONNECTOR_IO_PENDING = ERROR_IO_PENDING,
+    TCP_CONNECTOR_INVALID_DATA = ERROR_INVALID_DATA,
+    TCP_CONNECTOR_TASK_PENDING = 0x10000,
     TCP_CONNECTOR_TASK_CANCELED,
-    TCP_CONNECTOR_TASK_COMPLETED
-} TcpConnectorTaskStatus;
+    TCP_CONNECTOR_TASK_COMPLETED,
+    TCP_CONNECTOR_ERROR_INVALID_ARGUMENT = 0x20000,
+    TCP_CONNECTOR_ERROR_DUPLICATE_TASK_ID,
+    TCP_CONNECTOR_ERROR_TASK_NOT_FOUND,
+    TCP_CONNECTOR_ERROR_UNSUPPORTED_TASK,
+    TCP_CONNECTOR_ERROR_LIMIT_REACHED,
+    TCP_CONNECTOR_ERROR_OUT_OF_MEMORY,
+    TCP_CONNECTOR_ERROR_WINSOCK,
+    TCP_CONNECTOR_ERROR_COMPLETION_PORT,
+    TCP_CONNECTOR_ERROR_IO,
+    TCP_CONNECTOR_ERROR_TIMEOUT,
+    TCP_CONNECTOR_ERROR_CANCELED,
+    TCP_CONNECTOR_ERROR_NO_PENDING
+} TcpConnectorStatus;
 
 typedef struct {
     uint8_t *buffer;
@@ -48,50 +70,36 @@ typedef struct {
     };
 } TcpConnectorTaskOption;
 
-typedef enum {
-    TCP_CONNECTOR_SUCCESS = 0,
-    TCP_CONNECTOR_ERROR_INVALID_ARGUMENT,
-    TCP_CONNECTOR_ERROR_DUPLICATE_TASK_ID,
-    TCP_CONNECTOR_ERROR_TASK_NOT_FOUND,
-    TCP_CONNECTOR_ERROR_UNSUPPORTED_TASK,
-    TCP_CONNECTOR_ERROR_LIMIT_REACHED,
-    TCP_CONNECTOR_ERROR_OUT_OF_MEMORY,
-    TCP_CONNECTOR_ERROR_WINSOCK,
-    TCP_CONNECTOR_ERROR_COMPLETION_PORT,
-    TCP_CONNECTOR_ERROR_IO,
-    TCP_CONNECTOR_ERROR_TIMEOUT,
-    TCP_CONNECTOR_ERROR_CANCELED,
-    TCP_CONNECTOR_ERROR_NO_PENDING
-} TcpConnectorError;
-
 typedef struct TcpConnectorTask TcpConnectorTask;
 typedef BOOL (*TcpConnectorCompletionCallback)(TcpConnectorTask *task);
 
 struct TcpConnectorTask {
     char *id;
     TcpConnectorTaskOption options;
-    TcpConnectorTaskStatus status;
-    TcpConnectorError error;
+    TcpConnectorStatus status;
     DWORD WSA_error;
     TcpConnectorCompletionCallback on_completed;
     BOOL completion_reported;
     BOOL callback_reported;
     BOOL callback_running;
+    BOOL callback_queued;
+    BOOL completion_queued;
+    struct TcpConnectorTask *completion_next;
     void *userdata;
 };
 
-#define TCP_CONNECTOR_WITH_DRAINER 0x1u
+#define TCP_CONNECTOR_WITH_IO_COMPLETION_WORKER 0x1u
 
 
-DWORD TcpConnectorInitEventloop(uint32_t max_pending, uint32_t flags);
+DWORD TcpConnectorInitEventloop(uint32_t max_pending, uint32_t flags,
+    uint32_t callback_queue_capacity, uint32_t callback_thread_count);
 DWORD TcpConnectorClearEventloop(void);
 DWORD TcpConnectorCreateTask(TcpConnectorTaskOption options, const char *task_id,
     TcpConnectorCompletionCallback callback, void *userdata);
 DWORD TcpConnectorGetTask(const char *task_id, TcpConnectorTask *task);
 DWORD TcpConnectorCancelTask(const char *task_id);
 DWORD TcpConnectorWaitTask(const char *task_id);
-TcpConnectorError TcpConnectorWaitTasks(const char **task_id);
-DWORD TcpConnectorDiscardTask(const char *task_id);
+DWORD TcpConnectorWaitTasks(const char **task_id);
 DWORD TcpConnectorCloseSocketById(char *socket_id);
 
 #endif

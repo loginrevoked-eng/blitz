@@ -43,14 +43,15 @@ static DWORD WINAPI UIThread(LPVOID argument)
         unsigned checked = atomic_load(&stats->checked);
         unsigned up = atomic_load(&stats->up);
         unsigned down = atomic_load(&stats->down);
+        unsigned chatty = atomic_load(&stats->chatty_hosts);
         unsigned confirmed = atomic_load(&stats->script_confirmed_hosts);
         unsigned workers = atomic_load(&stats->spawned_threads);
         unsigned long long elapsed = ElapsedSeconds(stats);
         char line[256];
         snprintf(line, sizeof(line),
-            "elapsed %02llu:%02llu:%02llu | checked %u | claimed %u | up %u | down %u | confirmed %u | workers %u",
+            "elapsed %02llu:%02llu:%02llu | checked %u | claimed %u | up %u | down %u | chatty_hosts %u | confirmed %u | workers %u",
             elapsed / 3600, (elapsed / 60) % 60, elapsed % 60,
-            checked, claimed, up, down, confirmed, workers);
+            checked, claimed, up, down, chatty, confirmed, workers);
 
         LoggingOutputLock();
         previous_line_length = WriteProgressLine(line, previous_line_length);
@@ -61,14 +62,15 @@ static DWORD WINAPI UIThread(LPVOID argument)
     unsigned checked = atomic_load(&stats->checked);
     unsigned up = atomic_load(&stats->up);
     unsigned down = atomic_load(&stats->down);
+    unsigned chatty = atomic_load(&stats->chatty_hosts);
     unsigned confirmed = atomic_load(&stats->script_confirmed_hosts);
     unsigned workers = atomic_load(&stats->spawned_threads);
     unsigned long long elapsed = ElapsedSeconds(stats);
     char line[256];
     snprintf(line, sizeof(line),
-        "elapsed %02llu:%02llu:%02llu | checked %u | up %u | down %u | confirmed %u | workers %u",
+        "elapsed %02llu:%02llu:%02llu | checked %u | up %u | down %u | chatty_hosts %u | confirmed %u | workers %u",
         elapsed / 3600, (elapsed / 60) % 60, elapsed % 60,
-        checked, up, down, confirmed, workers);
+        checked, up, down, chatty, confirmed, workers);
     LoggingOutputLock();
     previous_line_length = WriteProgressLine(line, previous_line_length);
     fputc('\n', stderr);

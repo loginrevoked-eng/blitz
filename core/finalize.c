@@ -2,6 +2,8 @@
 
 #include "finalize.h"
 #include "cleanup.h"
+#include "banner.h"
+#include "../ev/tcp/public.h"
 
 static int ProbeWaitWorkers(ProbeContext *context)
 {
@@ -36,6 +38,18 @@ int ProbeFinalize(ProbeContext *context)
 
     if (!ProbeWaitWorkers(context))
         return 0;
+
+    if (context->start_event != NULL) {
+        CloseHandle(context->start_event);
+        context->start_event = NULL;
+    }
+
+    if (context->tcp_connector_started) {
+        BannerWait();
+        if (TcpConnectorClearEventloop() != ERROR_SUCCESS)
+            return 0;
+        context->tcp_connector_started = 0;
+    }
 
     HandleListFree(context->workers);
     context->workers = NULL;

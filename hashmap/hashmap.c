@@ -3,12 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct HashMapEntry {
-    char *key;
-    Value value;
-    HashMapEntry *next;
-};
-
 static unsigned long HashMap_Hash(const char *key)
 {
     unsigned long hash = 5381;
@@ -100,27 +94,41 @@ int HashMap_Remove(HashMap *map, const char *key)
     return 0;
 }
 
-size_t HashMap_RemoveIf(HashMap *map, HashMap_RemovePredicate predicate,
-    void *context)
+Value *HashMap_IterNext(HashMap *map, HashMapIter *iter)
 {
-    if (map == NULL || predicate == NULL)
-        return 0;
-
-    size_t removed = 0;
-    for (size_t i = 0; i < map->capacity; ++i) {
-        HashMapEntry **link = &map->buckets[i];
-        while (*link != NULL) {
-            HashMapEntry *entry = *link;
-            if (predicate(entry->key, &entry->value, context)) {
-                *link = entry->next;
-                free(entry->key);
-                free(entry);
-                ++removed;
-            } else {
-                link = &entry->next;
-            }
-        }
+    if (map == NULL || iter == NULL)
+        return NULL;
+    if (iter->map != map) {
+        memset(iter, 0, sizeof(*iter));
+        iter->map = map;
     }
+    if (iter->current != NULL)
+        iter->current = iter->next;
+    else if (iter->next != NULL)
+        iter->current = iter->next;
+    while (iter->current == NULL && iter->bucket < map->capacity)
+        iter->current = map->buckets[iter->bucket++];
+    iter->next = iter->current != NULL ? iter->current->next : NULL;
+    return iter->current != NULL ? &iter->current->value : NULL;
+}
+
+int HashMap_IterEnd(HashMap *map, HashMapIter *iter)
+{
+    (void)map;
+    return iter != NULL && iter->current != NULL;
+}
+
+const char *HashMap_IterKey(const HashMapIter *iter)
+{
+    return iter != NULL && iter->current != NULL ? iter->current->key : NULL;
+}
+
+int HashMap_IterRemove(HashMap *map, HashMapIter *iter)
+{
+    if (map == NULL || iter == NULL || iter->map != map || iter->current == NULL)
+        return 0;
+    int removed = HashMap_Remove(map, iter->current->key);
+    iter->current = NULL;
     return removed;
 }
 

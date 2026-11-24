@@ -70,6 +70,7 @@ typedef struct {
     atomic_uint      checked;
     atomic_uint      up;
     atomic_uint      down;
+    atomic_uint      chatty_hosts;
     atomic_uint      script_confirmed_hosts;
     atomic_uint      spawned_threads;
     ProbeStateFlags  state;
@@ -84,6 +85,7 @@ typedef struct {
     ProbeStats   *stats;
     ProbeConfig  *config;
     lua_State    *lua;
+    HANDLE       start_event;
 }WorkerContext;
 
 
@@ -93,7 +95,9 @@ typedef struct {
     ProbeConfig config;
     ProbeStats stats;
     SRWLOCK   *lock;
+    HANDLE start_event;
     int winsock_started;
+    int tcp_connector_started;
 }ProbeContext;
 
 

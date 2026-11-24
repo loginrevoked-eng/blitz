@@ -1,10 +1,12 @@
+#include <winsock2.h>
+
 #include "worker.h"
 
 #include "probe.h"
 #include "cleanup.h"
+#include "banner.h"
 #include "icmp.h"
 #include "scripting/public.h"
-#include "tcp.h"
 #include "udp.h"
 #include "../lua/include/lauxlib.h"
 #include "../logging/logging.h"
@@ -22,10 +24,10 @@ static void LogScriptLoadFailure(const char *path, const char *reason)
 
 static int LoadScript(lua_State *lua, ProbeConfig *config)
 {
-    if (lua == NULL || config == NULL)
+    if (lua == NULL || config == NULL || config->script == NULL)
         return 0;
 
-    const char *path = config->script != NULL ? config->script : "main.lua";
+    const char *path = config->script;
     if (luaL_loadfile(lua, path) != LUA_OK) {
         LogScriptLoadFailure(path, lua_tostring(lua, -1));
         lua_pop(lua, 1);
@@ -81,40 +83,6 @@ int CheckHost(HostUpCheck *check, HostUpCheckMethod method, Ipv4 ip)
         encountered_error |= *result->iresult == ICMP_RESULT_ERROR;
     }
 
-    if (options->method & HOST_CHECK_METHOD_TCP)
-    {
-        NonIcmpOptions *tcp = &options->tcp_options;
-        if (result->tresult == NULL)
-        {
-            result->tresult = calloc(1, sizeof(*result->tresult));
-            if (result->tresult != NULL && tcp->ports.len != 0)
-            {
-                result->tresult->results = calloc(tcp->ports.len, sizeof(*result->tresult->results));
-            }
-
-            if (result->tresult != NULL && tcp->ports.len != 0 && result->tresult->results == NULL)
-            {
-                ProbeCleanupTcpResultList(result->tresult);
-                result->tresult = NULL;
-            }
-            if (result->tresult == NULL)
-            {
-                result->status = HOST_CHECK_STATUS_ERROR;
-                return 0;
-            }
-            result->tresult->len = tcp->ports.len;
-        }
-
-        for (size_t i = 0; i < tcp->ports.len; ++i)
-        {
-            uint16_t port = tcp->ports.items[i];
-            TcpResult probe_result = ProbeTcp(&tcp->probe, port);
-            result->tresult->results[i] = (TcpResultWrapper){ port, probe_result, 0 };
-            responsive |= probe_result == TCP_RESULT_SYN_ACK_RECEIVED || probe_result == TCP_RESULT_RESET_RECEIVED;
-            encountered_error |= probe_result == TCP_RESULT_ERROR;
-        }
-    }
-
     if (options->method & HOST_CHECK_METHOD_UDP)
     {
         NonIcmpOptions *udp = &options->udp_options;
@@ -166,9 +134,14 @@ DWORD WINAPI ProbeWorker(LPVOID argument)
     HostUpCheck *check = &ctx->check;
     ProbeConfig *config = ctx->config;
 
+    if (stats != NULL)
+        atomic_fetch_add(&stats->started, 1);
+    if (ctx->start_event != NULL)
+        WaitForSingleObject(ctx->start_event, INFINITE);
 
     lua_State *lua = ctx->lua;
-    if (!LuaInit(lua, config) || !LoadScript(lua, config)) {
+    if (config->script != NULL &&
+        (!LuaInit(lua, config) || !LoadScript(lua, config))) {
         ProbeCleanupWorkerContext(ctx);
         return 0;
     }
@@ -179,21 +152,35 @@ DWORD WINAPI ProbeWorker(LPVOID argument)
     {
         if (stats) atomic_fetch_add(&stats->claimed, 1);
 
-        int up = CheckHost(check, config->method, ip);
-        if (stats != NULL)
-        {
+        HostUpCheckMethod synchronous_method = (HostUpCheckMethod)
+            (config->method & ~HOST_CHECK_METHOD_TCP);
+        int up = synchronous_method != 0 ?
+            CheckHost(check, synchronous_method, ip) : 0;
+
+        if (stats != NULL) {
             atomic_fetch_add(&stats->checked, 1);
-            if(up)
-            {
-                atomic_fetch_add(&stats->up, 1);
-            }
-            else{
-                atomic_fetch_add(&stats->down, 1);
+            if (synchronous_method != 0) {
+                if (up)
+                    atomic_fetch_add(&stats->up, 1);
+                else
+                    atomic_fetch_add(&stats->down, 1);
             }
         }
 
+        if (config->method & HOST_CHECK_METHOD_TCP) {
+            const PortList *ports = &config->options.tcp_options.ports;
+            int tracking_host = BannerBeginHost(ip, (uint32_t)ports->len,
+                stats, synchronous_method == 0);
+            if (!tracking_host && synchronous_method == 0)
+                atomic_fetch_add(&stats->down, 1);
+            for (size_t i = 0; i < ports->len; ++i)
+                RegisterTask(ip, ports->items[i]);
+            if (tracking_host)
+                BannerEndHost(ip);
+        }
+
         if (!up) continue;
-        if (LuaInvoke(lua, check) && stats != NULL)
+        if (lua != NULL && LuaInvoke(lua, check) && stats != NULL)
             atomic_fetch_add(&stats->script_confirmed_hosts, 1);
     }
 
