@@ -52,12 +52,10 @@ DWORD TcpConnectorInitEventloop(uint32_t limit, uint32_t flags,
     InitializeConditionVariable(&connector->control.submitters_done);
     InitializeConditionVariable(&connector->control.task_finished);
     InitializeConditionVariable(&connector->control.callback_space);
-    connector->control.callback_semaphore = CreateSemaphore(NULL, 0,
-        LONG_MAX, NULL);
+    InitializeConditionVariable(&connector->control.callback_available);
     connector->control.callback_threads = calloc(callback_thread_count,
         sizeof(*connector->control.callback_threads));
-    if (connector->control.callback_semaphore == NULL ||
-        connector->control.callback_threads == NULL)
+    if (connector->control.callback_threads == NULL)
         goto fail_winsock;
     connector->control.callback_thread_count = callback_thread_count;
     connector->control.callback_queue_capacity = callback_queue_capacity;
@@ -75,6 +73,7 @@ DWORD TcpConnectorInitEventloop(uint32_t limit, uint32_t flags,
     atomic_init(&connector->control.error, TCP_CONNECTOR_SUCCESS);
     atomic_init(&connector->control.running, 0);
     atomic_init(&connector->control.io_completion_worker_stop, FALSE);
+    atomic_init(&connector->control.callback_runner_stop, FALSE);
     if (!TcpConnectorSetLoop(connector)) {
         failure = TCP_CONNECTOR_ALREADY_EXISTS;
         goto fail_winsock;
@@ -83,7 +82,7 @@ DWORD TcpConnectorInitEventloop(uint32_t limit, uint32_t flags,
     for (; started_callback_threads < callback_thread_count;
          ++started_callback_threads) {
         connector->control.callback_threads[started_callback_threads] = CreateThread(
-            NULL, 0, TcpConnectorCallbackThread, connector, 0, NULL);
+            NULL, 0, TcpConnectorTaskCallbackRunner, connector, 0, NULL);
         if (connector->control.callback_threads[started_callback_threads] == NULL) {
             failure = GetLastError();
             goto fail_threads;
@@ -103,18 +102,15 @@ fail_threads:
     TcpConnectorDetachLoop(connector);
     AcquireSRWLockExclusive(connector->control.lock);
     connector->control.callback_stopping = TRUE;
-    if (started_callback_threads != 0)
-        ReleaseSemaphore(connector->control.callback_semaphore,
-            (LONG)started_callback_threads, NULL);
+    WakeAllConditionVariable(&connector->control.callback_available);
     ReleaseSRWLockExclusive(connector->control.lock);
     for (uint32_t i = 0; i < started_callback_threads; ++i) {
         WaitForSingleObject(connector->control.callback_threads[i], INFINITE);
         CloseHandle(connector->control.callback_threads[i]);
     }
+    atomic_store(&connector->control.callback_runner_stop, TRUE);
 fail_winsock:
     free(connector->control.callback_threads);
-    if (connector->control.callback_semaphore != NULL)
-        CloseHandle(connector->control.callback_semaphore);
     if (connector->internal.completion_port != NULL)
         CloseHandle(connector->internal.completion_port);
     HashMap_Free(connector->lookup.tasks);

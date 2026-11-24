@@ -15,13 +15,13 @@ void SetConnectorError(TcpConnectorLoop *connector, DWORD error)
         atomic_store(&connector->control.error, (unsigned int)error);
 }
 
-TcpConnectorTask *FindTask(TcpConnectorLoop *connector, const char *task_id)
+TcpConnectorTask *TcpConnectorFindTask(TcpConnectorLoop *connector, const char *task_id)
 {
     Value *value = HashMap_Get(connector->lookup.tasks, task_id);
     return value != NULL && value->kind == VALUE_POINTER ? value->ptr : NULL;
 }
 
-TcpConnectorPendingIo *FindPendingIo(TcpConnectorLoop *connector, const char *task_id)
+TcpConnectorPendingIo *TcpConnectorFindPendingIo(TcpConnectorLoop *connector, const char *task_id)
 {
     Value *value = HashMap_Get(connector->lookup.pending_io, task_id);
     return value != NULL && value->kind == VALUE_POINTER ? value->ptr : NULL;

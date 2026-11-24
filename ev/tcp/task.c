@@ -4,7 +4,7 @@ void TcpConnectorTaskReadySubmitCallback(TcpConnectorLoop *connector, TcpConnect
     if (connector == NULL || task == NULL || task->on_completed == NULL ||
         task->callback_queued || task->callback_reported)
         return;
-    TcpConnectorPendingIo *io = FindPendingIo(connector, task->id);
+    TcpConnectorPendingIo *io = TcpConnectorFindPendingIo(connector, task->id);
     if (io != NULL && io->in_flight)
         return;
     while (connector->control.callback_queue_length >=
@@ -31,7 +31,7 @@ void TcpConnectorTaskReadySubmitCallback(TcpConnectorLoop *connector, TcpConnect
         connector->control.callback_head = callback;
     connector->control.callback_tail = callback;
     ++connector->control.callback_queue_length;
-    ReleaseSemaphore(connector->control.callback_semaphore, 1, NULL);
+    WakeConditionVariable(&connector->control.callback_available);
 }
 
 void TcpConnectorReportCompletion(TcpConnectorLoop *connector, TcpConnectorTask *task)
@@ -39,7 +39,7 @@ void TcpConnectorReportCompletion(TcpConnectorLoop *connector, TcpConnectorTask 
     if (connector == NULL || task == NULL || task->completion_queued ||
         task->completion_reported)
         return;
-    TcpConnectorPendingIo *io = FindPendingIo(connector, task->id);
+    TcpConnectorPendingIo *io = TcpConnectorFindPendingIo(connector, task->id);
     if (io != NULL && io->in_flight)
         return;
     task->completion_queued = TRUE;
@@ -54,6 +54,16 @@ void TcpConnectorReportCompletion(TcpConnectorLoop *connector, TcpConnectorTask 
 
 TaskCallback *TcpConnectorTakeCallback(TcpConnectorLoop *connector)
 {
+    while (connector->control.callback_head == NULL &&
+        !connector->control.callback_stopping &&
+        !atomic_load(&connector->control.callback_runner_stop)) {
+        if (!SleepConditionVariableSRW(&connector->control.callback_available,
+                connector->control.lock, INFINITE, 0)) {
+            SetConnectorError(connector, GetLastError());
+            return NULL;
+        }
+    }
+
     TaskCallback *callback = connector->control.callback_head;
     if (callback == NULL)
         return NULL;
@@ -65,7 +75,6 @@ TaskCallback *TcpConnectorTakeCallback(TcpConnectorLoop *connector)
     TcpConnectorTask *task = callback->arg;
     task->callback_queued = FALSE;
     task->callback_reported = TRUE;
-    task->callback_running = TRUE;
     WakeConditionVariable(&connector->control.callback_space);
     return callback;
 }

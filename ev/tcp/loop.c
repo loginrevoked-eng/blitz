@@ -52,7 +52,7 @@ static void FinishSynchronousFailure(TcpConnectorLoop *connector, TcpConnectorTa
 
 static TcpConnectorPendingIo *GetOrCreatePendingIo(TcpConnectorLoop *connector, TcpConnectorTask *task)
 {
-    TcpConnectorPendingIo *io_request = FindPendingIo(connector, task->id);
+    TcpConnectorPendingIo *io_request = TcpConnectorFindPendingIo(connector, task->id);
     if (io_request != NULL)
         return io_request;
 
@@ -266,7 +266,7 @@ static void CancelExpired(TcpConnectorLoop *connector)
         if (io == NULL || !io->in_flight || !io->has_deadline ||
             io->cancel_requested || io->timed_out || now < io->deadline)
             continue;
-        TcpConnectorTask *task = FindTask(connector, HashMap_IterKey(&iter));
+        TcpConnectorTask *task = TcpConnectorFindTask(connector, HashMap_IterKey(&iter));
         if (task == NULL || (task->options.kind != TCP_CONNECTOR_TASK_CONNECT &&
             !(task->options.kind == TCP_CONNECTOR_TASK_RECV &&
                 task->options.sr_opt.timeout_ms != 0)))
@@ -302,8 +302,8 @@ DWORD TcpConnectorHandleCompletion(TcpConnectorLoop *connector, DWORD wait_ms)
     TcpConnectorTask *task = NULL;
 
     AcquireSRWLockExclusive(connector->control.lock);
-    task = FindTask(connector, io_request->task_id);
-    if (task == NULL || FindPendingIo(connector, io_request->task_id) != io_request ||
+    task = TcpConnectorFindTask(connector, io_request->task_id);
+    if (task == NULL || TcpConnectorFindPendingIo(connector, io_request->task_id) != io_request ||
         !io_request->in_flight || (TcpConnectorSocket *)key != io_request->socket) {
         ReleaseSRWLockExclusive(connector->control.lock);
         SetConnectorError(connector, TCP_CONNECTOR_INVALID_DATA);

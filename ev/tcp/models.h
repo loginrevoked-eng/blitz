@@ -22,13 +22,14 @@ typedef struct {
     CONDITION_VARIABLE submitters_done;
     CONDITION_VARIABLE task_finished;
     CONDITION_VARIABLE callback_space;
+    CONDITION_VARIABLE callback_available;
     HANDLE io_completion_worker;
-    HANDLE callback_semaphore;
     HANDLE *callback_threads;
     uint32_t callback_thread_count;
     uint32_t callback_queue_capacity;
     uint32_t callback_queue_length;
     BOOL callback_stopping;
+    atomic_bool callback_runner_stop;
     TaskCallback *callback_head;
     TaskCallback *callback_tail;
     TcpConnectorTask *completion_head;
@@ -73,8 +74,8 @@ typedef struct {
 
 Value PointerValue(void *pointer);
 void SetConnectorError(TcpConnectorLoop *connector, DWORD error);
-TcpConnectorTask *FindTask(TcpConnectorLoop *connector, const char *task_id);
-TcpConnectorPendingIo *FindPendingIo(TcpConnectorLoop *connector, const char *task_id);
+TcpConnectorTask *TcpConnectorFindTask(TcpConnectorLoop *connector, const char *task_id);
+TcpConnectorPendingIo *TcpConnectorFindPendingIo(TcpConnectorLoop *connector, const char *task_id);
 TcpConnectorSocket *FindSocket(TcpConnectorLoop *connector, const char *socket_id);
 void CloseSocket(TcpConnectorSocket *socket);
 void RemovePendingIo(TcpConnectorLoop *connector, TcpConnectorPendingIo *io);
@@ -88,7 +89,7 @@ TcpConnectorTask *TcpConnectorTaskNew(const char *task_id, TcpConnectorTaskOptio
 void TcpConnectorTaskDestroy(TcpConnectorTask *task);
 DWORD TcpConnectorHandleCompletion(TcpConnectorLoop *connector, DWORD wait_ms);
 DWORD WINAPI TcpConnectorIoCompletionWorker(LPVOID argument);
-DWORD WINAPI TcpConnectorCallbackThread(LPVOID argument);
+DWORD WINAPI TcpConnectorTaskCallbackRunner(LPVOID argument);
 TcpConnectorLoop *TcpConnectorGetLoop(void);
 BOOL TcpConnectorSetLoop(TcpConnectorLoop *loop);
 void TcpConnectorDetachLoop(TcpConnectorLoop *loop);

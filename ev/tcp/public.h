@@ -94,11 +94,10 @@ struct TcpConnectorTask {
 DWORD TcpConnectorInitEventloop(uint32_t max_pending, uint32_t flags,
     uint32_t callback_queue_capacity, uint32_t callback_thread_count);
 DWORD TcpConnectorClearEventloop(void);
-DWORD TcpConnectorCreateTask(TcpConnectorTaskOption options, const char *task_id,
-    TcpConnectorCompletionCallback callback, void *userdata);
+DWORD TcpConnectorCreateTask(TcpConnectorTaskOption options, const char *task_id, TcpConnectorCompletionCallback callback, void *userdata);
 DWORD TcpConnectorGetTask(const char *task_id, TcpConnectorTask *task);
 DWORD TcpConnectorCancelTask(const char *task_id);
-DWORD TcpConnectorWaitTask(const char *task_id);
+DWORD TcpConnectorAwaitTask(const char *task_id);
 DWORD TcpConnectorWaitTasks(const char **task_id);
 DWORD TcpConnectorCloseSocketById(char *socket_id);
 
