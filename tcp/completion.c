@@ -1,4 +1,4 @@
-#include "models.h"
+#include "internal.h"
 
 DWORD WINAPI TcpConnectorIoCompletionWorker(LPVOID argument)
 {

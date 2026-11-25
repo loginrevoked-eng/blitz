@@ -1,41 +1,9 @@
-#include "models.h"
+#include "internal.h"
 #include <stdlib.h>
 #include <string.h>
 
-TcpConnectorTask *TcpConnectorTaskNew(const char *task_id, TcpConnectorTaskOption options)
-{
-    if (task_id == NULL || task_id[0] == '\0')
-        return NULL;
-    TcpConnectorTask *task = calloc(1, sizeof(*task));
-    if (task == NULL)
-        return NULL;
-    size_t id_length = strlen(task_id) + 1;
-    task->id = malloc(id_length);
-    if (task->id == NULL) {
-        free(task);
-        return NULL;
-    }
-    memcpy(task->id, task_id, id_length);
-    task->options = options;
-    if (options.kind == TCP_CONNECTOR_TASK_SEND || options.kind == TCP_CONNECTOR_TASK_RECV) {
-        task->options.sr_opt.kind = options.kind;
-        if (options.sr_opt.socket_id != NULL) {
-            size_t socket_id_length = strlen(options.sr_opt.socket_id) + 1;
-            task->options.sr_opt.socket_id = malloc(socket_id_length);
-            if (task->options.sr_opt.socket_id == NULL) {
-                free(task->id);
-                free(task);
-                return NULL;
-            }
-            memcpy(task->options.sr_opt.socket_id, options.sr_opt.socket_id,
-                socket_id_length);
-        }
-    }
-    task->status = TCP_CONNECTOR_TASK_PENDING;
-    return task;
-}
-
-DWORD TcpConnectorCreateTask(TcpConnectorTaskOption options, const char *task_id, TcpConnectorCompletionCallback on_completed, void *userdata)
+DWORD TcpConnectorCreateTask(TcpConnectorTaskOption options, const char *task_id,
+    TcpConnectorCompletionCallback on_completed, void *userdata)
 {
     TcpConnectorLoop *connector = TcpConnectorGetLoop();
     if (connector == NULL)
@@ -70,14 +38,14 @@ DWORD TcpConnectorCreateTask(TcpConnectorTaskOption options, const char *task_id
     task->on_completed = on_completed;
     task->userdata = userdata;
 
-    AcquireSRWLockExclusive(connector->control.lock);
+    TcpConnectorLockStateLock(connector);
     if (connector->control.closing) {
-        ReleaseSRWLockExclusive(connector->control.lock);
+        TcpConnectorUnlockStateLock(connector);
         TcpConnectorTaskDestroy(task);
         return TCP_CONNECTOR_OPERATION_ABORTED;
     }
     if (TcpConnectorFindTask(connector, task_id) != NULL) {
-        ReleaseSRWLockExclusive(connector->control.lock);
+        TcpConnectorUnlockStateLock(connector);
         TcpConnectorTaskDestroy(task);
         TcpConnectorSetError(connector, TCP_CONNECTOR_ERROR_DUPLICATE_TASK_ID);
         return TCP_CONNECTOR_ALREADY_EXISTS;
@@ -87,11 +55,11 @@ DWORD TcpConnectorCreateTask(TcpConnectorTaskOption options, const char *task_id
         !connector->control.closing) {
         if (connector->control.io_completion_worker != NULL &&
             GetCurrentThreadId() == GetThreadId(connector->control.io_completion_worker)) {
-            ReleaseSRWLockExclusive(connector->control.lock);
+            TcpConnectorUnlockStateLock(connector);
             DWORD completion_error = TcpConnectorHandleCompletion(connector, INFINITE);
-            AcquireSRWLockExclusive(connector->control.lock);
+            TcpConnectorLockStateLock(connector);
             if (completion_error != TCP_CONNECTOR_SUCCESS) {
-                ReleaseSRWLockExclusive(connector->control.lock);
+                TcpConnectorUnlockStateLock(connector);
                 TcpConnectorTaskDestroy(task);
                 TcpConnectorSetError(connector, completion_error);
                 return completion_error;
@@ -100,31 +68,30 @@ DWORD TcpConnectorCreateTask(TcpConnectorTaskOption options, const char *task_id
         }
 
         ++connector->control.blocked_creators;
-        BOOL woke = SleepConditionVariableSRW(&connector->control.slot_available,
-            connector->control.lock, INFINITE, 0);
+        BOOL woke = TcpConnectorWaitSlotAvailableSignal(connector);
         --connector->control.blocked_creators;
         if (connector->control.blocked_creators == 0)
-            WakeAllConditionVariable(&connector->control.submitters_done);
+            TcpConnectorSignalAllSubmittersDone(connector);
         if (!woke) {
             DWORD wait_error = GetLastError();
-            ReleaseSRWLockExclusive(connector->control.lock);
+            TcpConnectorUnlockStateLock(connector);
             TcpConnectorTaskDestroy(task);
             return wait_error;
         }
     }
     if (connector->control.closing) {
-        ReleaseSRWLockExclusive(connector->control.lock);
+        TcpConnectorUnlockStateLock(connector);
         TcpConnectorTaskDestroy(task);
         return TCP_CONNECTOR_OPERATION_ABORTED;
     }
     if (TcpConnectorFindTask(connector, task_id) != NULL) {
-        ReleaseSRWLockExclusive(connector->control.lock);
+        TcpConnectorUnlockStateLock(connector);
         TcpConnectorTaskDestroy(task);
         TcpConnectorSetError(connector, TCP_CONNECTOR_ERROR_DUPLICATE_TASK_ID);
         return TCP_CONNECTOR_ALREADY_EXISTS;
     }
     if (!HashMap_Set(connector->lookup.tasks, task->id, TcpConnectorPointerValue(task))) {
-        ReleaseSRWLockExclusive(connector->control.lock);
+        TcpConnectorUnlockStateLock(connector);
         TcpConnectorTaskDestroy(task);
         TcpConnectorSetError(connector, TCP_CONNECTOR_ERROR_OUT_OF_MEMORY);
         return TCP_CONNECTOR_OUT_OF_MEMORY;
@@ -132,6 +99,6 @@ DWORD TcpConnectorCreateTask(TcpConnectorTaskOption options, const char *task_id
 
     TcpConnectorSetError(connector, TCP_CONNECTOR_SUCCESS);
     TcpConnectorStartTask(connector, task);
-    ReleaseSRWLockExclusive(connector->control.lock);
+    TcpConnectorUnlockStateLock(connector);
     return TCP_CONNECTOR_SUCCESS;
 }

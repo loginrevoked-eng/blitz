@@ -1,4 +1,34 @@
-#include "models.h"
+#include "internal.h"
+#include <stdlib.h>
+#include <string.h>
+
+TcpConnectorTask *TcpConnectorTaskNew(const char *task_id, TcpConnectorTaskOption options)
+{
+    if (task_id == NULL || task_id[0] == '\0')
+        return NULL;
+    TcpConnectorTask *task = calloc(1, sizeof(*task));
+    if (task == NULL)
+        return NULL;
+    size_t id_length = strlen(task_id) + 1;
+    task->id = malloc(id_length);
+    if (task->id == NULL) {
+        free(task);
+        return NULL;
+    }
+    memcpy(task->id, task_id, id_length);
+    task->options = options;
+    if (options.kind == TCP_CONNECTOR_TASK_SEND || options.kind == TCP_CONNECTOR_TASK_RECV) {
+        task->options.sr_opt.kind = options.kind;
+        if (options.sr_opt.socket_id)
+        {
+            task->options.sr_opt.socket_id = strdup(options.sr_opt.socket_id);
+        }
+    }
+    task->status = TCP_CONNECTOR_TASK_PENDING;
+    return task;
+}
+
+#include "internal.h"
 #include <stdlib.h>
 
 DWORD TcpConnectorGetTask(const char *task_id, TcpConnectorTask *task)
@@ -10,11 +40,11 @@ DWORD TcpConnectorGetTask(const char *task_id, TcpConnectorTask *task)
     if (task_id == NULL || task == NULL)
         return TCP_CONNECTOR_INVALID_ARGUMENT;
 
-    AcquireSRWLockExclusive(connector->control.lock);
+    TcpConnectorLockStateLock(connector);
     TcpConnectorTask *stored = TcpConnectorFindTask(connector, task_id);
     if (stored != NULL)
         *task = *stored;
-    ReleaseSRWLockExclusive(connector->control.lock);
+    TcpConnectorUnlockStateLock(connector);
     if (stored == NULL) {
         TcpConnectorSetError(connector, TCP_CONNECTOR_ERROR_TASK_NOT_FOUND);
         return TCP_CONNECTOR_NOT_FOUND;
@@ -31,16 +61,16 @@ DWORD TcpConnectorCancelTask(const char *task_id)
     if (task_id == NULL)
         return TCP_CONNECTOR_INVALID_ARGUMENT;
 
-    AcquireSRWLockExclusive(connector->control.lock);
+    TcpConnectorLockStateLock(connector);
     TcpConnectorTask *task = TcpConnectorFindTask(connector, task_id);
     if (task == NULL) {
-        ReleaseSRWLockExclusive(connector->control.lock);
+        TcpConnectorUnlockStateLock(connector);
         TcpConnectorSetError(connector, TCP_CONNECTOR_ERROR_TASK_NOT_FOUND);
         return TCP_CONNECTOR_NOT_FOUND;
     }
     if (task->status == TCP_CONNECTOR_TASK_COMPLETED ||
         task->status == TCP_CONNECTOR_TASK_CANCELED) {
-        ReleaseSRWLockExclusive(connector->control.lock);
+        TcpConnectorUnlockStateLock(connector);
         return TCP_CONNECTOR_SUCCESS;
     }
 
@@ -48,13 +78,13 @@ DWORD TcpConnectorCancelTask(const char *task_id)
     task->status = TCP_CONNECTOR_TASK_CANCELED;
     task->WSA_error = WSA_OPERATION_ABORTED;
     if (io_request == NULL || !io_request->in_flight)
-        WakeAllConditionVariable(&connector->control.task_finished);
+        TcpConnectorSignalAllTaskFinished(connector);
     PostQueuedCompletionStatus(connector->internal.completion_port, 0,
         TCP_CONNECTOR_IO_COMPLETION_WORKER_WAKE_KEY, NULL);
     if (io_request == NULL || !io_request->in_flight) {
         TcpConnectorRemovePendingIo(connector, io_request);
         TcpConnectorTaskReadySubmitCallback(connector, task);
-        ReleaseSRWLockExclusive(connector->control.lock);
+        TcpConnectorUnlockStateLock(connector);
         return TCP_CONNECTOR_SUCCESS;
     }
 
@@ -65,47 +95,10 @@ DWORD TcpConnectorCancelTask(const char *task_id)
         CancelIoEx((HANDLE)io_request->socket->handle,
             &io_request->overlapped) == 0 && GetLastError() != TCP_CONNECTOR_NOT_FOUND) {
         DWORD error = GetLastError();
-        ReleaseSRWLockExclusive(connector->control.lock);
+        TcpConnectorUnlockStateLock(connector);
         TcpConnectorSetError(connector, error);
         return error;
     }
-    ReleaseSRWLockExclusive(connector->control.lock);
+    TcpConnectorUnlockStateLock(connector);
     return TCP_CONNECTOR_SUCCESS;
 }
-
-DWORD TcpConnectorCloseSocketById(char *socket_id)
-{
-    TcpConnectorLoop *connector = TcpConnectorGetLoop();
-    if (connector == NULL)
-        return TCP_CONNECTOR_EVENT_LOOP_NO_INITIALIZED;
-
-    if (socket_id == NULL || socket_id[0] == '\0')
-        return TCP_CONNECTOR_INVALID_ARGUMENT;
-
-    AcquireSRWLockExclusive(connector->control.lock);
-    TcpConnectorSocket *socket = TcpConnectorFindSocket(connector, socket_id);
-    if (socket == NULL) {
-        ReleaseSRWLockExclusive(connector->control.lock);
-        return TCP_CONNECTOR_NOT_FOUND;
-    }
-    if (socket->pending_tasks != 0) {
-        ReleaseSRWLockExclusive(connector->control.lock);
-        return TCP_CONNECTOR_BUSY;
-    }
-
-    if (socket->handle != INVALID_SOCKET &&
-        closesocket(socket->handle) == SOCKET_ERROR) {
-        DWORD error = (DWORD)WSAGetLastError();
-        ReleaseSRWLockExclusive(connector->control.lock);
-        return error;
-    }
-    socket->handle = INVALID_SOCKET;
-    socket->connected = FALSE;
-    HashMap_Remove(connector->lookup.sockets, socket_id);
-    free(socket->id);
-    free(socket);
-    ReleaseSRWLockExclusive(connector->control.lock);
-    return TCP_CONNECTOR_SUCCESS;
-}
-
-

@@ -5,6 +5,7 @@
 #include <windows.h>
 #include <mswsock.h>
 #include <stdint.h>
+#include "../hashset/hashset.h"
 
 typedef enum {
     TCP_CONNECTOR_SUCCESS = 0,
@@ -71,6 +72,7 @@ typedef struct {
 } TcpConnectorTaskOption;
 
 typedef struct TcpConnectorTask TcpConnectorTask;
+typedef struct TcpConnectorLoop TcpConnector;
 typedef BOOL (*TcpConnectorCompletionCallback)(TcpConnectorTask *task);
 
 struct TcpConnectorTask {
@@ -87,9 +89,26 @@ struct TcpConnectorTask {
 
 #define TCP_CONNECTOR_WITH_IO_COMPLETION_WORKER 0x1u
 
-
 DWORD TcpConnectorInitEventloop(uint32_t max_pending, uint32_t flags,
-    uint32_t callback_queue_capacity, uint32_t callback_thread_count);
+    uint32_t callback_queue_initial_capacity);
+TcpConnector *TcpConnectorGet(void);
+char *TcpConnectorTasksWaitAny(TcpConnector *connector, char *const task_ids[],
+    int task_id_count, HashSet *task_id_cache);
+void TcpConnectorTaskInit(TcpConnectorTask *task);
+/* Duplicates owned IDs; payload, callback, and userdata pointers remain borrowed. */
+TcpConnectorTask *TcpConnectorTaskDup(const TcpConnectorTask *task);
+/* Frees a heap-owned task copy returned by TcpConnectorTaskDup. */
+void TcpConnectorTaskDestroy(TcpConnectorTask *task);
+BOOL TcpConnectorTaskSetId(TcpConnectorTask *task, const char *task_id);
+BOOL TcpConnectorTaskSetKind(TcpConnectorTask *task, TcpConnectorTaskOptionKind kind);
+BOOL TcpConnectorTaskSetAddr(TcpConnectorTask *task, const char *ipv4_address);
+BOOL TcpConnectorTaskSetPort(TcpConnectorTask *task, uint16_t port);
+BOOL TcpConnectorTaskSetTimeout(TcpConnectorTask *task, uint32_t timeout_ms);
+BOOL TcpConnectorTaskSetRetries(TcpConnectorTask *task, uint32_t retries);
+BOOL TcpConnectorTaskSetSocketId(TcpConnectorTask *task, const char *socket_id);
+BOOL TcpConnectorTaskSetPayload(TcpConnectorTask *task, ByteArray *payload);
+void TcpConnectorTaskSetCallback(TcpConnectorTask *task,
+    TcpConnectorCompletionCallback callback, void *userdata);
 DWORD TcpConnectorClearEventloop(void);
 DWORD TcpConnectorCreateTask(TcpConnectorTaskOption options, const char *task_id, TcpConnectorCompletionCallback callback, void *userdata);
 DWORD TcpConnectorGetTask(const char *task_id, TcpConnectorTask *task);

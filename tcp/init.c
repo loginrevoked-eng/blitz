@@ -1,4 +1,4 @@
-#include "models.h"
+#include "internal.h"
 #include <stdlib.h>
 
 static LPFN_CONNECTEX GetConnectEx(void)
@@ -19,10 +19,9 @@ static LPFN_CONNECTEX GetConnectEx(void)
 }
 
 DWORD TcpConnectorInitEventloop(uint32_t limit, uint32_t flags,
-    uint32_t callback_queue_capacity, uint32_t callback_thread_count)
+    uint32_t callback_queue_initial_capacity)
 {
-    if (limit == 0 || callback_queue_capacity == 0 || callback_thread_count == 0 ||
-        callback_queue_capacity > LONG_MAX || callback_thread_count > LONG_MAX ||
+    if (limit == 0 || callback_queue_initial_capacity == 0 ||
         (flags & ~TCP_CONNECTOR_WITH_IO_COMPLETION_WORKER) != 0)
         return TCP_CONNECTOR_INVALID_ARGUMENT;
 
@@ -42,23 +41,19 @@ DWORD TcpConnectorInitEventloop(uint32_t limit, uint32_t flags,
     connector->lookup.tasks = HashMap_New(capacity);
     connector->lookup.pending_io = HashMap_New(capacity);
     connector->lookup.sockets = HashMap_New(capacity);
-    connector->control.lock = malloc(sizeof(*connector->control.lock));
     if (connector->lookup.tasks == NULL || connector->lookup.pending_io == NULL ||
-        connector->lookup.sockets == NULL || connector->control.lock == NULL)
+        connector->lookup.sockets == NULL)
         goto fail_winsock;
 
-    InitializeSRWLock(connector->control.lock);
+    InitializeSRWLock(&connector->control.state_lock);
+    InitializeSRWLock(&connector->control.callback_lock);
     InitializeConditionVariable(&connector->control.slot_available);
     InitializeConditionVariable(&connector->control.submitters_done);
     InitializeConditionVariable(&connector->control.task_finished);
-    InitializeConditionVariable(&connector->control.callback_space);
     InitializeConditionVariable(&connector->control.callback_available);
-    connector->control.callback_threads = calloc(callback_thread_count,
-        sizeof(*connector->control.callback_threads));
-    if (connector->control.callback_threads == NULL)
+    if (!TcpConnectorTaskCallbackQueueInit(&connector->control.callback_queue,
+            callback_queue_initial_capacity))
         goto fail_winsock;
-    connector->control.callback_thread_count = callback_thread_count;
-    connector->control.callback_queue_capacity = callback_queue_capacity;
     connector->internal.completion_port = CreateIoCompletionPort(
         INVALID_HANDLE_VALUE, NULL, 0, 0);
     if (connector->internal.completion_port == NULL)
@@ -78,15 +73,11 @@ DWORD TcpConnectorInitEventloop(uint32_t limit, uint32_t flags,
         failure = TCP_CONNECTOR_ALREADY_EXISTS;
         goto fail_winsock;
     }
-    uint32_t started_callback_threads = 0;
-    for (; started_callback_threads < callback_thread_count;
-         ++started_callback_threads) {
-        connector->control.callback_threads[started_callback_threads] = CreateThread(
-            NULL, 0, TcpConnectorTaskCallbackRunner, connector, 0, NULL);
-        if (connector->control.callback_threads[started_callback_threads] == NULL) {
-            failure = GetLastError();
-            goto fail_threads;
-        }
+    connector->control.callback_thread = CreateThread(NULL, 0,
+        TcpConnectorTaskCallbackRunner, connector, 0, NULL);
+    if (connector->control.callback_thread == NULL) {
+        failure = GetLastError();
+        goto fail_threads;
     }
     if ((flags & TCP_CONNECTOR_WITH_IO_COMPLETION_WORKER) != 0) {
         connector->control.io_completion_worker = CreateThread(NULL, 0,
@@ -100,23 +91,22 @@ DWORD TcpConnectorInitEventloop(uint32_t limit, uint32_t flags,
 
 fail_threads:
     TcpConnectorDetachLoop(connector);
-    AcquireSRWLockExclusive(connector->control.lock);
+    TcpConnectorLockCallbackLock(connector);
     connector->control.callback_stopping = TRUE;
     atomic_store(&connector->control.callback_runner_stop, TRUE);
-    WakeAllConditionVariable(&connector->control.callback_available);
-    ReleaseSRWLockExclusive(connector->control.lock);
-    for (uint32_t i = 0; i < started_callback_threads; ++i) {
-        WaitForSingleObject(connector->control.callback_threads[i], INFINITE);
-        CloseHandle(connector->control.callback_threads[i]);
+    TcpConnectorSignalAllCallbackAvailable(connector);
+    TcpConnectorUnlockCallbackLock(connector);
+    if (connector->control.callback_thread != NULL) {
+        WaitForSingleObject(connector->control.callback_thread, INFINITE);
+        CloseHandle(connector->control.callback_thread);
     }
 fail_winsock:
-    free(connector->control.callback_threads);
+    TcpConnectorTaskCallbackQueueDestroy(&connector->control.callback_queue);
     if (connector->internal.completion_port != NULL)
         CloseHandle(connector->internal.completion_port);
     HashMap_Free(connector->lookup.tasks);
     HashMap_Free(connector->lookup.pending_io);
     HashMap_Free(connector->lookup.sockets);
-    free(connector->control.lock);
     WSACleanup();
     free(connector);
     return failure;

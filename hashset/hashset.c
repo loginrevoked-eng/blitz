@@ -22,17 +22,17 @@ static unsigned long HashValue(Value value)
 {
     unsigned long hash = HashBytes(5381, &value.kind, sizeof value.kind);
     switch (value.kind) {
-        case VALUE_BOOL: return HashBytes(hash, &value.b, sizeof value.b);
-        case VALUE_INT: return HashBytes(hash, &value.i, sizeof value.i);
-        case VALUE_LONG: return HashBytes(hash, &value.l, sizeof value.l);
+        case VALUE_BOOL: return HashBytes(hash, &value._bool, sizeof value._bool);
+        case VALUE_INT: return HashBytes(hash, &value._int, sizeof value._int);
+        case VALUE_LONG: return HashBytes(hash, &value._long, sizeof value._long);
         case VALUE_DOUBLE: {
-            double normalized = value.d == 0.0 ? 0.0 : value.d;
+            double normalized = value._double == 0.0 ? 0.0 : value._double;
             return HashBytes(hash, &normalized, sizeof normalized);
         }
         case VALUE_STRING:
-            return value.s ? HashBytes(hash, value.s, strlen(value.s)) : hash;
+            return value.str ? HashBytes(hash, value.str, strlen(value.str)) : hash;
         case VALUE_POINTER: {
-            uintptr_t pointer = (uintptr_t)value.p;
+            uintptr_t pointer = (uintptr_t)value.ptr;
             return HashBytes(hash, &pointer, sizeof pointer);
         }
         case VALUE_LIST:
@@ -40,7 +40,6 @@ static unsigned long HashValue(Value value)
                 hash = HashValue(node->value) + (hash * 33);
             return hash;
         case VALUE_NULL:
-        case VALUE_UNKNOWN:
             return hash;
     }
     return hash;
@@ -58,13 +57,13 @@ static int ValueEqual(Value left, Value right)
     if (left.kind != right.kind)
         return 0;
     switch (left.kind) {
-        case VALUE_BOOL: return left.b == right.b;
-        case VALUE_INT: return left.i == right.i;
-        case VALUE_LONG: return left.l == right.l;
-        case VALUE_DOUBLE: return left.d == right.d;
+        case VALUE_BOOL: return left._bool == right._bool;
+        case VALUE_INT: return left._int == right._int;
+        case VALUE_LONG: return left._long == right._long;
+        case VALUE_DOUBLE: return left._double == right._double;
         case VALUE_STRING:
-            return left.s == right.s || (left.s && right.s && strcmp(left.s, right.s) == 0);
-        case VALUE_POINTER: return left.p == right.p;
+            return left.str == right.str || (left.str && right.str && strcmp(left.str, right.str) == 0);
+        case VALUE_POINTER: return left.ptr == right.ptr;
         case VALUE_LIST: {
             ValueNode *a = left.list, *b = right.list;
             while (a && b) {
@@ -75,7 +74,6 @@ static int ValueEqual(Value left, Value right)
             return a == NULL && b == NULL;
         }
         case VALUE_NULL:
-        case VALUE_UNKNOWN:
             return 1;
     }
     return 0;
@@ -84,7 +82,7 @@ static int ValueEqual(Value left, Value right)
 static void ValueContentsFree(Value *value)
 {
     if (value->kind == VALUE_STRING) {
-        free(value->s);
+        free(value->str);
     } else if (value->kind == VALUE_LIST) {
         ValueNode *node = value->list;
         while (node) {
@@ -101,8 +99,8 @@ static int ValueContentsClone(Value *destination, Value source)
     *destination = source;
     destination->free = NULL;
     if (source.kind == VALUE_STRING) {
-        destination->s = source.s ? strdup(source.s) : NULL;
-        return source.s == NULL || destination->s != NULL;
+        destination->str = source.str ? strdup(source.str) : NULL;
+        return source.str == NULL || destination->str != NULL;
     }
     if (source.kind == VALUE_LIST) {
         destination->list = NULL;
@@ -189,7 +187,7 @@ int HashSet_PutString(HashSet *set, const char *value)
 {
     if (value == NULL)
         return 0;
-    Value key = { .kind = VALUE_STRING, .s = (char *)value };
+    Value key = { .kind = VALUE_STRING, .str = (char *)value };
     return HashSet_Add(set, key);
 }
 
@@ -197,7 +195,7 @@ int HashSet_ContainsString(const HashSet *set, const char *value)
 {
     if (value == NULL)
         return 0;
-    Value key = { .kind = VALUE_STRING, .s = (char *)value };
+    Value key = { .kind = VALUE_STRING, .str = (char *)value };
     return HashSet_Contains(set, key);
 }
 
@@ -205,7 +203,7 @@ int HashSet_RemoveString(HashSet *set, const char *value)
 {
     if (value == NULL)
         return 0;
-    Value key = { .kind = VALUE_STRING, .s = (char *)value };
+    Value key = { .kind = VALUE_STRING, .str = (char *)value };
     return HashSet_Remove(set, key);
 }
 

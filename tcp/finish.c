@@ -1,4 +1,4 @@
-#include "models.h"
+#include "internal.h"
 #include <stdlib.h>
 
 DWORD TcpConnectorClearEventloop(void)
@@ -9,18 +9,16 @@ DWORD TcpConnectorClearEventloop(void)
     if (connector->control.io_completion_worker != NULL &&
         GetCurrentThreadId() == GetThreadId(connector->control.io_completion_worker))
         return TCP_CONNECTOR_BUSY;
-    for (uint32_t i = 0; i < connector->control.callback_thread_count; ++i) {
-        if (GetCurrentThreadId() == GetThreadId(connector->control.callback_threads[i]))
-            return TCP_CONNECTOR_BUSY;
-    }
+    if (connector->control.callback_thread != NULL &&
+        GetCurrentThreadId() == GetThreadId(connector->control.callback_thread))
+        return TCP_CONNECTOR_BUSY;
 
-    AcquireSRWLockExclusive(connector->control.lock);
+    TcpConnectorLockStateLock(connector);
     connector->control.closing = TRUE;
-    WakeAllConditionVariable(&connector->control.task_finished);
-    WakeAllConditionVariable(&connector->control.slot_available);
+    TcpConnectorSignalAllTaskFinished(connector);
+    TcpConnectorSignalAllSlotAvailable(connector);
     while (connector->control.blocked_creators != 0)
-        SleepConditionVariableSRW(&connector->control.submitters_done,
-            connector->control.lock, INFINITE, 0);
+        TcpConnectorWaitSubmittersDoneSignal(connector);
     HashMapIter iter = { 0 };
     for (Value *value = HashMap_IterNext(connector->lookup.tasks, &iter);
          value != NULL; value = HashMap_IterNext(connector->lookup.tasks, &iter)) {
@@ -32,7 +30,7 @@ DWORD TcpConnectorClearEventloop(void)
         task->status = TCP_CONNECTOR_TASK_CANCELED;
         task->WSA_error = WSA_OPERATION_ABORTED;
         if (io == NULL || !io->in_flight) {
-            WakeAllConditionVariable(&connector->control.task_finished);
+            TcpConnectorSignalAllTaskFinished(connector);
             TcpConnectorRemovePendingIo(connector, io);
             TcpConnectorTaskReadySubmitCallback(connector, task);
         } else {
@@ -43,38 +41,37 @@ DWORD TcpConnectorClearEventloop(void)
                 CancelIoEx((HANDLE)io->socket->handle, &io->overlapped);
         }
     }
-    ReleaseSRWLockExclusive(connector->control.lock);
+    TcpConnectorUnlockStateLock(connector);
     TcpConnectorDetachLoop(connector);
 
     if (connector->control.io_completion_worker != NULL) {
-        AcquireSRWLockExclusive(connector->control.lock);
+        TcpConnectorLockStateLock(connector);
         while (atomic_load(&connector->control.running) != 0)
-            SleepConditionVariableSRW(&connector->control.task_finished,
-                connector->control.lock, INFINITE, 0);
-        ReleaseSRWLockExclusive(connector->control.lock);
+            TcpConnectorWaitTaskFinishedSignal(connector);
+        TcpConnectorUnlockStateLock(connector);
     } else {
         while (atomic_load(&connector->control.running) != 0)
             TcpConnectorHandleCompletion(connector, INFINITE);
     }
 
     if (connector->control.io_completion_worker != NULL) {
-        AcquireSRWLockExclusive(connector->control.lock);
+        TcpConnectorLockStateLock(connector);
         atomic_store(&connector->control.io_completion_worker_stop, TRUE);
         PostQueuedCompletionStatus(connector->internal.completion_port, 0,
             TCP_CONNECTOR_IO_COMPLETION_WORKER_WAKE_KEY, NULL);
-        ReleaseSRWLockExclusive(connector->control.lock);
+        TcpConnectorUnlockStateLock(connector);
         WaitForSingleObject(connector->control.io_completion_worker, INFINITE);
         CloseHandle(connector->control.io_completion_worker);
     }
 
-    AcquireSRWLockExclusive(connector->control.lock);
+    TcpConnectorLockCallbackLock(connector);
     connector->control.callback_stopping = TRUE;
     atomic_store(&connector->control.callback_runner_stop, TRUE);
-    WakeAllConditionVariable(&connector->control.callback_available);
-    ReleaseSRWLockExclusive(connector->control.lock);
-    for (uint32_t i = 0; i < connector->control.callback_thread_count; ++i) {
-        WaitForSingleObject(connector->control.callback_threads[i], INFINITE);
-        CloseHandle(connector->control.callback_threads[i]);
+    TcpConnectorSignalAllCallbackAvailable(connector);
+    TcpConnectorUnlockCallbackLock(connector);
+    if (connector->control.callback_thread != NULL) {
+        WaitForSingleObject(connector->control.callback_thread, INFINITE);
+        CloseHandle(connector->control.callback_thread);
     }
     iter = (HashMapIter){ 0 };
     for (Value *value = HashMap_IterNext(connector->lookup.sockets, &iter);
@@ -95,8 +92,7 @@ DWORD TcpConnectorClearEventloop(void)
     HashMap_Free(connector->lookup.pending_io);
     if (connector->internal.completion_port != NULL)
         CloseHandle(connector->internal.completion_port);
-    free(connector->control.callback_threads);
-    free(connector->control.lock);
+    TcpConnectorTaskCallbackQueueDestroy(&connector->control.callback_queue);
     WSACleanup();
     free(connector);
     return TCP_CONNECTOR_SUCCESS;
