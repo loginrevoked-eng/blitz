@@ -1,6 +1,6 @@
 #include "spinner.h"
-#include "logging/logging.h"
-#include "str/str.h"
+#include "logging.h"
+#include "str.h"
 
 #include <stdlib.h>
 #include <string.h>

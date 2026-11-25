@@ -1,6 +1,6 @@
 #include "marquee.h"
-#include "logging/logging.h"
-#include "str/str.h"
+#include "logging.h"
+#include "str.h"
 
 #include <stdio.h>
 #include <stdlib.h>

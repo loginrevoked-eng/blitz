@@ -1,5 +1,5 @@
 #include "cidr.h"
-#include "str/str.h"
+#include "str.h"
 #include <stdlib.h>
 
 static int ParseDecimal(const char **p, int max_digits, unsigned long max_val, unsigned long *out)

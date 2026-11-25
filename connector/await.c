@@ -1,5 +1,5 @@
 #include "internal.h"
-#include "../hashset/hashset.h"
+#include "hashset.h"
 
 static BOOL TcpConnectorTaskHasSettled(TcpConnectorLoop *loop, TcpConnectorTask *task)
 {

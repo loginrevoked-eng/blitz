@@ -1,5 +1,5 @@
 #include "bucket.h"
-#include "str/str.h"
+#include "str.h"
 
 #include <stdlib.h>
 #include <string.h>

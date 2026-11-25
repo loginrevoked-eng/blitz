@@ -1,8 +1,8 @@
 #ifndef CORE_BANNER_H
 #define CORE_BANNER_H
 
-#include "../pool/cidr.h"
-#include "../ev/tcp/public.h"
+#include "cidr.h"
+#include "connector.h"
 #include "probe.h"
 #include <stdint.h>
 

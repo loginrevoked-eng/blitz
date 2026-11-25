@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include "public.h"
+#include "cmdline.h"
 
 static int verbose_callback_called;
 

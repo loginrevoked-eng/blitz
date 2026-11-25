@@ -1,7 +1,7 @@
 #include "banner.h"
 
-#include "../logging/logging.h"
-#include "../ev/tcp/public.h"
+#include "logging.h"
+#include "connector.h"
 
 #include <stdatomic.h>
 #include <limits.h>

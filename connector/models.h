@@ -1,10 +1,10 @@
 #ifndef TCP_CONNECTOR_MODELS_H
 #define TCP_CONNECTOR_MODELS_H
 
-#include "public.h"
+#include "connector.h"
 #include <stdatomic.h>
-#include "../hashmap/hashmap.h"
-#include "../value/value.h"
+#include "hashmap.h"
+#include "value.h"
 
 #define TCP_CONNECTOR_IO_COMPLETION_WORKER_WAKE_KEY ((ULONG_PTR)~(ULONG_PTR)0)
 

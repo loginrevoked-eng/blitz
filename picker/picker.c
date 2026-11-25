@@ -3,11 +3,11 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "cidr.h"
-#include "crypto/feistel.h"
+#include "feistel.h"
 #include "logging.h"
 #include "picker.h"
 #include "exclusion.h"
-#include "crypto/random.h"
+#include "random.h"
 #include "resume.h"
 #include "time.h"
 

@@ -2,7 +2,7 @@
 #define HASHMAP_H
 
 #include <stddef.h>
-#include "../value/value.h"
+#include "value.h"
 
 typedef struct HashMapEntry {
     char *key;

@@ -1,6 +1,6 @@
 #include "progress.h"
-#include "logging/logging.h"
-#include "str/str.h"
+#include "logging.h"
+#include "str.h"
 
 #include <stdint.h>
 #include <stdlib.h>

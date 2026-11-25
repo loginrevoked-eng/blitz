@@ -1,4 +1,4 @@
-#include "public.h"
+#include "connector.h"
 #include <string.h>
 
 void TcpConnectorTaskInit(TcpConnectorTask *task)

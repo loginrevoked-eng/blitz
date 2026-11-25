@@ -2,7 +2,7 @@
 #define MOOLAHCLI_PARSER_H
 
 
-#include "public.h"
+#include "cmdline.h"
 #include "hashmap.h"
 
 

@@ -1,6 +1,6 @@
 #include "init.h"
 #include "resume.h"
-#include "str/str.h"
+#include "str.h"
 #include "picker.h"
 #include <stdlib.h>
 

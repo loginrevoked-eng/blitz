@@ -3,7 +3,8 @@
 #include "finalize.h"
 #include "cleanup.h"
 #include "banner.h"
-#include "../ev/tcp/public.h"
+#include "connector.h"
+#include "telnet.h"
 
 static int ProbeWaitWorkers(ProbeContext *context)
 {
@@ -45,6 +46,7 @@ int ProbeFinalize(ProbeContext *context)
     }
 
     if (context->tcp_connector_started) {
+        TelnetWaitForSessions(INFINITE);
         BannerWait();
         if (TcpConnectorClearEventloop() != ERROR_SUCCESS)
             return 0;

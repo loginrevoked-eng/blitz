@@ -1,7 +1,7 @@
 #include "config.h"
 #include "cleanup.h"
 
-#include "../cmdline/public.h"
+#include "cmdline.h"
 
 #include <limits.h>
 #include <stdlib.h>
@@ -86,43 +86,6 @@ static int ParsePorts(PortList **output, const MoolahValue *value)
     return 1;
 }
 
-static int CopyPorts(PortList *destination, const PortList *source)
-{
-    if (source == NULL || source->len == 0)
-        return 1;
-
-    destination->items = malloc(source->len * sizeof(*source->items));
-    if (destination->items == NULL)
-        return 0;
-    memcpy(destination->items, source->items,
-        source->len * sizeof(*source->items));
-    destination->len = source->len;
-    return 1;
-}
-
-static int InitOptions(ProbeConfig *config, const PortList *ports)
-{
-    HostUpCheckProbeOptions probe = { 0 };
-    probe.timeout_ms = config->timeout_ms;
-    probe.retries = config->retries;
-    config->options.method = config->method;
-
-    if (config->method & HOST_CHECK_METHOD_ICMP) {
-        config->options.icmp_options.probe = probe;
-    }
-    if (config->method & HOST_CHECK_METHOD_UDP) {
-        config->options.udp_options.probe = probe;
-        if (!CopyPorts(&config->options.udp_options.ports, ports))
-            return 0;
-    }
-    if (config->method & HOST_CHECK_METHOD_TCP) {
-        config->options.tcp_options.probe = probe;
-        if (!CopyPorts(&config->options.tcp_options.ports, ports))
-            return 0;
-    }
-    return 1;
-}
-
 int ProbeConfig_Parse(ProbeConfig *config, int argc, char **argv)
 {
     if (config == NULL || argc < 1 || argv == NULL || argv[0] == NULL)
@@ -142,17 +105,11 @@ int ProbeConfig_Parse(ProbeConfig *config, int argc, char **argv)
 
 
     ADD(MOOLAHCLI_OPT_STR, "cidr", NULL, "IPv4 CIDR", MOOLAHCLI_OPT_POSITIONAL | MOOLAHCLI_OPT_REQUIRED);
-    MoolahCliAddMutexGroup(parser, "icmp-ports", 0);
-    MoolahCliAdd(parser, MOOLAHCLI_OPT_BOOL, "icmp", "--icmp", NULL,
-        "ICMP echo check", 0, NULL, NULL, "icmp-ports");
-    ADD(MOOLAHCLI_OPT_BOOL, "syn", "--syn", "TCP probe", 0);
-    ADD(MOOLAHCLI_OPT_BOOL, "datagram", "--datagram", "UDP probe", 0);
     ADD(MOOLAHCLI_OPT_BOOL, "keep-private-ranges", "--keep-private-ranges",
         "include private IP ranges", 0);
     MoolahCliAdd(parser, MOOLAHCLI_OPT_LONG, "ports", "--ports", NULL,
-        "one or more TCP/UDP ports",
-        MOOLAHCLI_OPT_LIST | MOOLAHCLI_OPT_VARIADIC, NULL, NULL,
-        "icmp-ports");
+        "one or more ports",
+        MOOLAHCLI_OPT_LIST | MOOLAHCLI_OPT_VARIADIC, NULL, NULL, NULL);
     ADD(MOOLAHCLI_OPT_LONG, "threads", "--threads", "worker count", 0);
     ADD(MOOLAHCLI_OPT_LONG, "limit", "--limit", "number of addresses", 0);
     ADD(MOOLAHCLI_OPT_LONG, "bucket-width", "--bucket-width", "pool bucket width", MOOLAHCLI_OPT_REQUIRED);
@@ -161,23 +118,12 @@ int ProbeConfig_Parse(ProbeConfig *config, int argc, char **argv)
     ADD(MOOLAHCLI_OPT_LONG, "retries", "--retries", "retry count", MOOLAHCLI_OPT_REQUIRED);
     ADD(MOOLAHCLI_OPT_STR, "resume", "--resume", "resume file", 0);
     ADD(MOOLAHCLI_OPT_STR, "dump", "--dump", "pool dump file", 0);
-    ADD(MOOLAHCLI_OPT_STR, "script", "--script", "Lua script file", 0);
     ADD(MOOLAHCLI_OPT_STR, "set-log-level", "--set-log-level", "logging level: debug, info, warn, error, fatal, log, quiet", 0);
 #undef ADD
 
     MoolahCliParse(parser, argc, argv);
 
-    MoolahValue *value = MoolahCliGet(parser, "icmp");
-    if (value != NULL && value->b)
-        config->method = (HostUpCheckMethod)(config->method | HOST_CHECK_METHOD_ICMP);
-    value = MoolahCliGet(parser, "syn");
-    if (value != NULL && value->b)
-        config->method = (HostUpCheckMethod)(config->method | HOST_CHECK_METHOD_TCP);
-    value = MoolahCliGet(parser, "datagram");
-    if (value != NULL && value->b)
-        config->method = (HostUpCheckMethod)(config->method | HOST_CHECK_METHOD_UDP);
-
-    value = MoolahCliGet(parser, "keep-private-ranges");
+    MoolahValue *value = MoolahCliGet(parser, "keep-private-ranges");
     config->keep_private_ranges = value != NULL && value->b;
 
     const char *cidr_text = MoolahCliGetString(parser, "cidr");
@@ -196,17 +142,10 @@ int ProbeConfig_Parse(ProbeConfig *config, int argc, char **argv)
     const char *dump = MoolahCliGetString(parser, "dump");
     if (dump != NULL)
         config->dump = _strdup(dump);
-    const char *script = MoolahCliGetString(parser, "script");
-    if (script != NULL)
-        config->script = _strdup(script);
-
     const char *log_level = MoolahCliGetString(parser, "set-log-level");
-    int needs_ports = (config->method &
-        (HOST_CHECK_METHOD_TCP | HOST_CHECK_METHOD_UDP)) != 0;
-    int valid = config->method != 0 && cidr_text != NULL && config->cidr != NULL &&
+    int valid = cidr_text != NULL && config->cidr != NULL &&
         (resume == NULL || config->resume != NULL) &&
         (dump == NULL || config->dump != NULL) &&
-        (script == NULL || config->script != NULL) &&
         (log_level == NULL || ParseLogLevel(log_level, &config->loglevel)) &&
         ReadU32(parser, "threads", 32, &config->workers) &&
         ReadU32(parser, "limit", 100, &config->limit) &&
@@ -219,8 +158,7 @@ int ProbeConfig_Parse(ProbeConfig *config, int argc, char **argv)
         config->workers != 0 && config->limit != 0 &&
         config->bucket_width != 0 &&
         ParsePorts(&config->ports, MoolahCliGet(parser, "ports")) &&
-        (!needs_ports || config->ports != NULL) &&
-        InitOptions(config, config->ports);
+        config->ports != NULL;
 
     MoolahCliDestroy(parser);
     if (!valid) {

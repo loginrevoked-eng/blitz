@@ -1,11 +1,11 @@
-#ifndef TCP_CONNECTOR_PUBLIC_H
-#define TCP_CONNECTOR_PUBLIC_H
+#ifndef TCP_CONNECTOR_CONNECTOR_H
+#define TCP_CONNECTOR_CONNECTOR_H
 
 #include <winsock2.h>
 #include <windows.h>
 #include <mswsock.h>
 #include <stdint.h>
-#include "../hashset/hashset.h"
+#include "hashset.h"
 
 typedef enum {
     TCP_CONNECTOR_SUCCESS = 0,

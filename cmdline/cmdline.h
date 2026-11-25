@@ -1,5 +1,5 @@
-#ifndef MOOLAHCLI_PUBLIC_H
-#define MOOLAHCLI_PUBLIC_H
+#ifndef MOOLAHCLI_CMDLINE_H
+#define MOOLAHCLI_CMDLINE_H
 
 #include "value.h"
 
