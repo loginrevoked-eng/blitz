@@ -35,6 +35,9 @@ DWORD WINAPI ProbeWorker(LPVOID argument)
             BOOL exhausted = FALSE;
             while(!exhausted)
             {
+		char *ipr = Ipv4Repr(ip);
+                Log("creating telnet session for %s", ipr);
+		free(ipr);
                 TelnetCreateSessionHardcodedII(ip, port, &exhausted);
             }
         }
