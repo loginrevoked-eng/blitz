@@ -1,5 +1,0 @@
-microsoft exchange
-android debug bridge
-favicon hash
-htmlhash
-handshakehash
