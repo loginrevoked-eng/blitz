@@ -14,7 +14,7 @@ static int build_pkt(eth_hdr_t *pkt, const syn_scan_config_t *cfg, uint32_t ip, 
 
     char eth_r[1024];
     eth_printf(pkt, eth_r, sizeof(eth_r));
-    info("initialized the following packet...\n%s", eth_r);
+    //info("initialized the following packet...\n%s", eth_r);
     return 0;
 }
 

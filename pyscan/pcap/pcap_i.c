@@ -107,7 +107,7 @@ int recv_pcap_pkt(const syn_scan_config_t *cfg, pcap_t *hndl, scan_target_t *ali
     int res = pcap_next_ex(hndl, &header, &pkt_data);
 
     if (res == 0) {
-        info("Timed out waiting for reply.");
+        //info("Timed out waiting for reply.");
         return -2;
     }
 

@@ -39,7 +39,7 @@ typedef struct{
 
 
 typedef struct{
-    float pps;
+    uint32_t pps;
 }syn_scan_settings_t;
 
 typedef struct {
@@ -57,6 +57,7 @@ typedef struct {
     struct route_t         route;
     syn_scan_config_t      cfg;
     syn_scan_settings_t    settings;
+    int                    total_pkts;
 } SynScanCtx;
 
 
@@ -178,7 +179,7 @@ DWORD WINAPI syn_scan_tx(LPVOID arg)
 
     while (WaitForSingleObject(ctx->tx_stop, 0) != WAIT_OBJECT_0)
     {
-        if (total_pkts % 10 == 0) Sleep(10);
+        //if (total_pkts % 10 == 0) Sleep(10);
 
         Ipv4 target_ip = 0;
 
@@ -206,7 +207,7 @@ DWORD WINAPI syn_scan_tx(LPVOID arg)
             total_pkts++;
         }
     }
-
+    ctx->total_pkts = total_pkts;
     syn_scan_trigger_quit(ctx, SYN_SCAN_QUIT_FINISHED, "%d SYNs sent..", total_pkts);
     pcap_close(tx_hndl);
     return 0;
@@ -234,8 +235,9 @@ void syn_scan_free_ctx(SynScanCtx *ctx) {
 
 
 
-int syn_scan_init_ctx(SynScanCtx *ctx, IpPicker *picker, struct route_t *route, const syn_scan_config_t *cfg, u16_list_t ports)
+int syn_scan_init_ctx(SynScanCtx *ctx, IpPicker *picker, struct route_t *route, const syn_scan_config_t *cfg, u16_list_t ports, uint32_t pps)
 {
+
     if (!ctx || !picker || !route || !cfg || !ports.items || ports.len == 0) {
         return 1;
     }
@@ -247,6 +249,8 @@ int syn_scan_init_ctx(SynScanCtx *ctx, IpPicker *picker, struct route_t *route, 
     ctx->cfg    = *cfg;
     ctx->ports  = ports;
     ctx->seen = SynScannerHashSet_New(65535);
+    ctx->settings = (syn_scan_settings_t){.pps = pps};
+    ctx->total_pkts = 0;
     InitializeSRWLock(&ctx->lock);
 
     if (list_inits(&ctx->open, 64) != 0)
@@ -332,10 +336,10 @@ int main(void)
     }
 
 
-    IpPicker *picker = IpPicker_InitSimple("10.4.81.1/32", 16, 5);
-
+    IpPicker *picker = IpPicker_InitSimple("0.0.0.0/0", 65535, 20);
+    uint32_t pps = 100;
     SynScanCtx ctx;
-    if (syn_scan_init_ctx(&ctx, picker, &route, &cfg, ports) != 0)
+    if (syn_scan_init_ctx(&ctx, picker, &route, &cfg, ports, pps) != 0)
     {
         error("Failed to initialize scan context.");
         u16_list_frees(&ports);
@@ -364,7 +368,7 @@ int main(void)
 
     g_ctx = NULL;
 
-    info("Scan complete: %u open ports, %u alive responses.", ctx.open.len, ctx.alive.len);
+    info("Scan complete: %d SYNs sent %u open ports, %u alive responses.", ctx.total_pkts, ctx.open.len, ctx.alive.len);
     scan_target_t res;
     while (list_pop(&ctx.open, &res) == 0)
     {
