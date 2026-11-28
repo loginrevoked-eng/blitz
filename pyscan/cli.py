@@ -1,7 +1,7 @@
 import argparse
 from dataclasses import dataclass
 
-from pcap.scan import parse_ports
+from pypcap.scan import parse_ports
 
 
 @dataclass(frozen=True)

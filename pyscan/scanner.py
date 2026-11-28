@@ -13,10 +13,10 @@ from grabbers.ghttp.envf import http_grab_envf
 from grabbers.ghttp.favicon import http_grab_favicon
 from grabbers.ghttp.http import http_grab
 from grabbers.rdp.screenshot import rdp_grab_screenshot
-from pcap import ScanContext as SynScanContext
-from pcap import scan_init as syn_scan_init
-from pcap.scan import scan_shutdown as syn_scan_shutdown
-from pcap.scan import scan_wait as syn_scan_wait
+from pypcap import ScanContext as SynScanContext
+from pypcap import scan_init as syn_scan_init
+from pypcap.scan import scan_shutdown as syn_scan_shutdown
+from pypcap.scan import scan_wait as syn_scan_wait
 from report import logger
 from stats import ScanStats, spawn_stat_thread, stop_stat_thread
 
@@ -168,20 +168,12 @@ async def stop_producer(ctx: ScanContext) -> None:
 
 
 def register_hooks(ctx: ScanContext) -> None:
-    loop = asyncio.get_running_loop()
-    scan_task = asyncio.current_task()
-
-    def handle_sigint(signum, frame):
-        if ctx.event.is_set():
-            return
+    def handle_sigterm(signum, frame):
         ctx.event.set()
         ctx.syn_scan.stats.interrupted = True
         ctx.syn_scan.quit.set()
-        if scan_task is not None:
-            loop.call_soon_threadsafe(scan_task.cancel)
 
-    signal.signal(signal.SIGINT, handle_sigint)
-    signal.signal(signal.SIGTERM, handle_sigint)
+    signal.signal(signal.SIGTERM, handle_sigterm)
 
 
 def scan_init(config: Config, *args, **kwargs) -> ScanContext:
@@ -195,6 +187,7 @@ def scan_init(config: Config, *args, **kwargs) -> ScanContext:
         config.cooldown,
         ports=config.ports,
         enable_stats_tui=False,
+        register_signal_handlers=False,
         response_drain_timeout=config.response_drain_timeout,
     )
     ctx = ScanContext(
@@ -226,8 +219,10 @@ async def scan(ctx: ScanContext) -> None:
         raise
     except asyncio.CancelledError:
         interrupted = True
-        if not ctx.event.is_set():
-            raise
+        ctx.event.set()
+        ctx.syn_scan.stats.interrupted = True
+        ctx.syn_scan.quit.set()
+        raise
     finally:
         await scanner_shutdown(
             ctx, interrupted=interrupted or ctx.event.is_set()

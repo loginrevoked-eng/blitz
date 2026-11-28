@@ -1,0 +1,7 @@
+[
+  {
+    "directory": "C:/Users/winuser/Desktop/projects/bot/pyscan/pcap",
+    "command": "C:/msys64/ucrt64/bin/gcc.exe --target=x86_64-w64-windows-gnu -IC:/npcap-sdk-1.17/Include -c main.c -o main.o",
+    "file": "C:/Users/winuser/Desktop/projects/bot/pyscan/pcap/main.c"
+  }
+]
